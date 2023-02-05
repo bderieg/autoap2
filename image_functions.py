@@ -9,12 +9,23 @@ import numpy as np
 from skimage.morphology import erosion, disk
 from skimage import feature, measure
 
-def find_background_coord(img_filename):
-    # Open image as 2D numpy array
+def find_background_flux(img_filename):
     img = fits.open(img_filename)[0].data
 
+    flux_sigma = np.std(img.flatten())
+    flux_median = np.median(img.flatten())
+    
+    img_sigma_clipped = img
+    img_sigma_clipped[np.where(img > flux_median)] = 0
+
+    background_flux = np.median(img_sigma_clipped.flatten())
+
+    return background_flux
+
+
+def find_blobs(img):
     # Perform blob detection
-    blob_log = feature.blob_log(img, min_sigma=80, max_sigma=90, threshold=10.0)
+    blob_log = feature.blob_log(img, min_sigma=5, max_sigma=50, threshold=10.0)
     blobs = []
     for blob in blob_log:
         y, x, r = blob
@@ -40,6 +51,22 @@ def find_background_coord(img_filename):
         flat = 1 - np.sqrt(np.min(eigenvalues) / np.max(eigenvalues))
         flattenings.append(flat)
 
+    # Remove blob if it's the target (i.e., in the center)
+    target_blob_mask = [
+            PixCoord(len(img[0])/2, len(img)/2)
+            not in 
+            EllipsePixelRegion(center=PixCoord(x=blob[0],y=blob[1]), width=2*blob[2]*flat, height=2*blob[2], angle=pa*u.rad) 
+            for blob, pa, flat in zip(blobs, position_angles, flattenings)
+            ]
+    target_blob_mask_trip = np.compress(np.repeat(target_blob_mask, 3), blobs)
+    blobs = [
+            tuple(split) 
+            for split in 
+            np.split(target_blob_mask_trip, len(target_blob_mask_trip)/3)
+            ]
+    position_angles = np.compress(target_blob_mask, position_angles)
+    flattenings = np.compress(target_blob_mask, flattenings)
+
     # Display detected blobs
     fig, ax = plt.subplots()
     ax.imshow(img, cmap='gray')
@@ -57,7 +84,7 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
     # Define some constants
     major_ax = 0.01
     rad_increment = 0.005
-    threshold = 0.00001
+    threshold = 0.003
 
     # Open image as 2D numpy array
     img = fits.open(img_filename)[0].data
@@ -79,8 +106,8 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
         # Define the main aperture
         main_ap_sky = EllipseSkyRegion(
                 center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'), 
-                height=major_ax*u.deg, 
-                width=major_ax*axis_ratio*u.deg, 
+                height=major_ax*axis_ratio*u.deg, 
+                width=major_ax*u.deg, 
                 angle=pa*u.deg
                 )
         main_ap_pix = main_ap_sky.to_pixel(wcs)
@@ -97,15 +124,14 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
         # Find the average flux around the outside edge of the aperture
         flux_edge_avg = np.median(aperture_edge_cutout[np.nonzero(aperture_edge_cutout)])
 
-    plt.imshow(img)
-    main_ap_pix.plot()
-    plt.show()
+    return aperture_full_cutout
 
-# fit_with_coordinates(
-#         "/home/ben/Desktop/research/research_boizelle_working/FITS/NGC6861DES_i.fits",
-#         [301.8310264, -48.3699881],
-#         gnd.get_ellipse_parameters("NGC 6861")["axis_ratio"],
-#         gnd.get_ellipse_parameters("NGC 6861")["position_angle"]
-#         )
+target_cutout = fit_ellipse_with_coordinates(
+        "/home/ben/Desktop/research/research_boizelle_working/FITS/NGC3100W1.fits",
+        [150.1701423, -31.6645582],
+        gnd.get_ellipse_parameters("NGC 3100")["axis_ratio"],
+        gnd.get_ellipse_parameters("NGC 3100")["position_angle"],
+        find_background_flux("/home/ben/Desktop/research/research_boizelle_working/FITS/NGC3100W1.fits")
+        )
 
-b = find_background_coord("/home/ben/Desktop/research/research_boizelle_working/FITS/NGC1380DES_r.fits")
+find_blobs(target_cutout)
