@@ -12,66 +12,87 @@ from skimage import feature, measure
 def find_background_flux(img_filename):
     img = fits.open(img_filename)[0].data
 
-    flux_sigma = np.std(img.flatten())
-    flux_median = np.median(img.flatten())
+    flux_sigma = np.nanstd(img.flatten())
+    flux_median = np.nanmedian(img.flatten())
     
     img_sigma_clipped = img
     img_sigma_clipped[np.where(img > flux_median)] = 0
 
-    background_flux = np.median(img_sigma_clipped.flatten())
+    background_flux = np.nanmedian((img_sigma_clipped.flatten())[img_sigma_clipped.flatten() != 0])
 
     return background_flux
 
 
-def find_blobs(img):
+def find_blobs(img, background_flux):
     # Perform blob detection
-    blob_log = feature.blob_log(img, min_sigma=5, max_sigma=50, threshold=10.0)
+    blob_log = feature.blob_log(
+            img, 
+            min_sigma=1.5, 
+            max_sigma=0.5*len(img), 
+            threshold=background_flux+0.1*(np.nanmax(img)-background_flux),
+            overlap=0.95
+            )
     blobs = []
     for blob in blob_log:
         y, x, r = blob
         blobs.append((x,y,r))
 
-    # Compute blob image moments
-    moments = []
-    for x, y, r in blobs:
-        region = img[int(y-r):int(y+r), int(x-r):int(x+r)]
-        moment = measure.moments_central(region, (y,x))
-        moments.append(moment)
-
-    # Use moments to get position angles and flattenings
+    # Use moments to get secondary source characteristics
+    centroids_x = []
+    centroids_y = []
+    radii = []
     position_angles = []
     flattenings = []
-    for moment in moments:
-        # Get eigenvalues of covariance matrix from blob moment
-        eigenvalues, _ = np.linalg.eig([[moment[2,0],moment[1,1]],[moment[1,1],moment[0,2]]])
+    for x, y, r in blobs:
+        if (r == 0) or (x == 0) or (y == 0):
+            continue
+        r *= 4
+        # Define region for use in moment calculation
+        source_region = img[int(y-r):int(y+r), int(x-r):int(x+r)].copy()
 
-        pa = 0.5 * np.arctan2(2 * moment[1,1], moment[2,0] - moment[0,2])
+        # Threshold image
+        thresh_bin_mask = source_region < (0.05*(np.max(source_region)-np.min(source_region))-np.min(source_region))
+        source_region[thresh_bin_mask] = 0
+
+        # Calculate raw moment and centroid
+        raw_moment = measure.moments(source_region)
+        centroids_x.append(x - (len(source_region[0])/2 - raw_moment[1,0]/raw_moment[0,0]))
+        centroids_y.append(y - (len(source_region)/2 - raw_moment[0,1]/raw_moment[0,0]))
+
+        # Calculate central moment and covariance matrix
+        central_moment = measure.moments_central(source_region)
+        central_moment_norm = central_moment / raw_moment[0,0]
+        cov_mat = np.asarray([[central_moment_norm[2,0],central_moment_norm[1,1]],[central_moment_norm[1,1],central_moment_norm[0,2]]])
+
+        # Get eigenvalues of covariance matrix
+        eigenvalues = np.linalg.eigvals(cov_mat)
+
+        pa = 0.5 * np.arctan2(2 * central_moment_norm[1,1], central_moment_norm[2,0] - central_moment_norm[0,2])
         position_angles.append(pa)
 
-        flat = 1 - np.sqrt(np.min(eigenvalues) / np.max(eigenvalues))
+        flat = np.sqrt(np.min(eigenvalues) / np.max(eigenvalues))
         flattenings.append(flat)
+
+        radii.append(r)
 
     # Remove blob if it's the target (i.e., in the center)
     target_blob_mask = [
             PixCoord(len(img[0])/2, len(img)/2)
             not in 
-            EllipsePixelRegion(center=PixCoord(x=blob[0],y=blob[1]), width=2*blob[2]*flat, height=2*blob[2], angle=pa*u.rad) 
-            for blob, pa, flat in zip(blobs, position_angles, flattenings)
+            EllipsePixelRegion(center=PixCoord(x=cx,y=cy), width=2*r*flat, height=2*r, angle=pa*u.rad) 
+            for cx, cy, r, pa, flat in zip(centroids_x, centroids_y, radii, position_angles, flattenings)
             ]
-    target_blob_mask_trip = np.compress(np.repeat(target_blob_mask, 3), blobs)
-    blobs = [
-            tuple(split) 
-            for split in 
-            np.split(target_blob_mask_trip, len(target_blob_mask_trip)/3)
-            ]
+    centroids_x = np.compress(target_blob_mask, centroids_x)
+    centroids_y = np.compress(target_blob_mask, centroids_y)
+    radii = np.compress(target_blob_mask, radii)
     position_angles = np.compress(target_blob_mask, position_angles)
     flattenings = np.compress(target_blob_mask, flattenings)
 
     # Display detected blobs
     fig, ax = plt.subplots()
     ax.imshow(img, cmap='gray')
-    for blob, pa, flat in zip(blobs, position_angles, flattenings):
-        region = EllipsePixelRegion(center=PixCoord(x=blob[0],y=blob[1]), width=2*blob[2]*flat, height=2*blob[2], angle=pa*u.rad)
+    for cx, cy, r, pa, flat in zip(centroids_x, centroids_y, radii, position_angles, flattenings):
+        region = EllipsePixelRegion(center=PixCoord(x=cx,y=cy), width=2*r, height=2*r/flat, angle=pa*u.rad)
         region.plot(ax=ax, color='red', lw=2.0)
     plt.show()
 
@@ -84,7 +105,7 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
     # Define some constants
     major_ax = 0.01
     rad_increment = 0.005
-    threshold = 0.003
+    threshold = 0.00007
 
     # Open image as 2D numpy array
     img = fits.open(img_filename)[0].data
@@ -127,11 +148,11 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
     return aperture_full_cutout
 
 target_cutout = fit_ellipse_with_coordinates(
-        "/home/ben/Desktop/research/research_boizelle_working/FITS/NGC3100W1.fits",
-        [150.1701423, -31.6645582],
-        gnd.get_ellipse_parameters("NGC 3100")["axis_ratio"],
-        gnd.get_ellipse_parameters("NGC 3100")["position_angle"],
-        find_background_flux("/home/ben/Desktop/research/research_boizelle_working/FITS/NGC3100W1.fits")
+        "/home/ben/Desktop/research/research_boizelle_working/FITS/NGC6861IRAC1.fits",
+        [301.8310720, -48.3701041],
+        gnd.get_ellipse_parameters("NGC 6861")["axis_ratio"],
+        gnd.get_ellipse_parameters("NGC 6861")["position_angle"],
+        find_background_flux("/home/ben/Desktop/research/research_boizelle_working/FITS/NGC6861IRAC1.fits")
         )
 
-find_blobs(target_cutout)
+find_blobs(target_cutout, find_background_flux("/home/ben/Desktop/research/research_boizelle_working/FITS/NGC6861IRAC1.fits"))
