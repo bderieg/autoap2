@@ -1,0 +1,14 @@
+{
+"SPIRE500" : "Herschel",
+"SPIRE350" : "Herschel",
+"SPIRE250" : "Herschel",
+"PACS160" : "Herschel",
+"PACS100" : "Herschel",
+"PACS70" : "Herschel",
+"IRAC2" : "Spitzer",
+"IRAC1" : "Spitzer",
+"W4" : "WISE",
+"W3" : "WISE",
+"W2" : "WISE",
+"W1" : "WISE"
+}
