@@ -14,3 +14,8 @@ def get_ellipse_parameters(target_name):
     avg_ratio = mean(a_to_b_ratios)
     avg_pa = mean(pa)
     return {"axis_ratio" : avg_ratio, "position_angle" : avg_pa}
+
+
+def get_coords(target_name):
+    main_table = ned.query_object(target_name)
+    return float(main_table["RA"]), float(main_table["DEC"])
