@@ -25,6 +25,16 @@ workdir = ""
 # Flux integration routine #
 ############################
 
+def integrate_flux(cutout, background):
+    flux = 0
+
+    for row in cutout:
+        for pix_val in row:
+            if pix_val==pix_val and pix_val!=0.0:
+                flux += pix_val
+                flux -= background
+
+    return flux
 
 #######################
 #######################
@@ -38,13 +48,13 @@ workdir = ""
 
 # Prompt to change working directory
 print(' ')
-workdir = input("Enter working directory: ")
+workdir = input("Enter working directory (relative or absolute) : ")
 if workdir[-1] != '/':
     workdir += '/'
 
 # Prompt to specify targets for photometry
 print(' ')
-curinp = input("Do photometry on ALL subfolders in this directory? (y/n) : ")
+curinp = input("Create apertures for ALL subfolders in this directory? (y/n) : ")
 subdirs = [f.name for f in os.scandir(workdir) if f.is_dir()]
 if curinp=='y' or curinp=='Y':
     target_names = subdirs
@@ -53,11 +63,28 @@ else:
     target_names = input("Enter (as a comma-separated list) the desired targets : ")
     target_names = target_names.split(',')
 
+# Loop through targets
 for target in target_names:
     if target in subdirs:
         filters = [(f.name).replace('.fits','') for f in os.scandir(workdir+target+"/fits/")]
+        # Loop through images for this target
         for fltr in filters:
+            # Open image
             img_path = workdir+target+"/fits/"+fltr+".fits"
+            try:
+                # Open
+                fitsfile = fits.open(img_path)
+                # Loop through extensions to get the one with image data
+                img = fitsfile[0].data  # Default to first extension just in case
+                wcs = WCS(fitsfile[0].header, naxis=[1,2])  # ^^
+                for ext in fitsfile:
+                    if 'IMAGE' in ext.header.get('EXTNAME','').upper():
+                        img = ext.data
+                        wcs = WCS(ext.header, naxis=[1,2])
+            except FileNotFoundError:
+                logging.warning('For '+target_name+', \''+fltr+'.fits\' not found, but there exists a corresponding aperture file')
+                continue
+            # Algorithmically determine main aperture for image
             main_ap_sky, bg_ap_pix = imf.fit_ellipse_with_coordinates(
                     img_path,
                     gnd.get_coords(target),
@@ -65,9 +92,13 @@ for target in target_names:
                     gnd.get_ellipse_parameters(target)["position_angle"],
                     imf.find_background_flux(img_path)
                     )
+            main_ap_pix = main_ap_sky.to_pixel(wcs)
+            # Algorithmically determine subtraction apertures
+            sub_aps_pix = imf.find_blobs((main_ap_pix.to_mask()).multiply(img), integrate_flux((bg_ap_pix.to_mask()).multiply(img),0)/100)
             # Write out apertures to files
+            main_sub_aps = Regions([main_ap_pix] + sub_aps_pix)
             bg_ap_pix.write(workdir+target+"/apertures/background"+fltr+".reg", format='ds9', overwrite=True)
-            main_ap_sky.write(workdir+target+"/apertures/"+fltr+".reg", format='ds9', overwrite=True)
+            main_sub_aps.write(workdir+target+"/apertures/"+fltr+".reg", format='ds9', overwrite=True)
     else:
         logging.warning("A target was specified, but no corresponding folder was found, so no photometry was done")
 

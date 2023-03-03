@@ -4,7 +4,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
 from astropy import units as u
-from regions import PixCoord, CirclePixelRegion, EllipseSkyRegion, EllipsePixelRegion, RectanglePixelRegion
+from regions import Regions, PixCoord, CirclePixelRegion, EllipseSkyRegion, EllipsePixelRegion, RectanglePixelRegion
 import numpy as np
 from skimage.morphology import erosion, disk
 from skimage import feature, measure
@@ -16,14 +16,24 @@ import threading
 from matplotlib.patches import Ellipse
 
 
-
 def find_background_flux(img_filename):
 
     ##############
     # Open image #
     ##############
 
-    img = fits.open(img_filename)[0].data
+    # Attempt to open fits file
+    try:
+        # Open
+        fitsfile = fits.open(img_filename)
+        # Loop through extensions to get the one with image data
+        img = fitsfile[0].data  # Default to first extension just in case
+        for ext in fitsfile:
+            if 'IMAGE' in ext.header.get('EXTNAME','').upper():
+                img = ext.data
+    except FileNotFoundError:
+        logging.warning('For '+target_name+', \''+fltr+'.fits\' not found, but there exists a corresponding aperture file')
+        return 0.0
 
     #############################
     # Get some image parameters #
@@ -31,7 +41,7 @@ def find_background_flux(img_filename):
 
     flux_sigma = np.nanstd(img.flatten())
     flux_median = np.nanmedian(img.flatten())
-    
+
     ##############
     # Clip image #
     ##############
@@ -134,19 +144,25 @@ def find_blobs(img, background_flux):
     position_angles = np.compress(target_blob_mask, position_angles)
     flattenings = np.compress(target_blob_mask, flattenings)
 
-    #####################################
-    # Confirm blob detections with user #
-    #####################################
+    # #####################################
+    # # Confirm blob detections with user #
+    # #####################################
 
-    fig, ax = plt.subplots()
-    cm = plt.get_cmap('cividis').copy()
-    cm.set_under('black')
-    cm.set_over('black')
-    ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
+    # fig, ax = plt.subplots()
+    # cm = plt.get_cmap('cividis').copy()
+    # cm.set_under('black')
+    # cm.set_over('black')
+    # ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
+    # for cx, cy, r, pa, flat in zip(centroids_x, centroids_y, radii, position_angles, flattenings):
+    #     region = EllipsePixelRegion(center=PixCoord(x=cx,y=cy), width=2*r, height=2*r/flat, angle=pa*u.rad)
+    #     region.plot(ax=ax, color='red', lw=2.0)
+    # plt.show()
+
+    sub_aps = []
     for cx, cy, r, pa, flat in zip(centroids_x, centroids_y, radii, position_angles, flattenings):
-        region = EllipsePixelRegion(center=PixCoord(x=cx,y=cy), width=2*r, height=2*r/flat, angle=pa*u.rad)
-        region.plot(ax=ax, color='red', lw=2.0)
-    plt.show()
+        sub_aps.append(EllipsePixelRegion(center=PixCoord(x=cx,y=cy), width=2*r, height=2*r/flat, angle=pa*u.rad, visual={'edgecolor':'red'}))
+
+    return sub_aps
 
 
 def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, background_flux):
@@ -161,10 +177,19 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
     threshold = 0.005
 
     # Open image as 2D numpy array
-    img = fits.open(img_filename)[0].data
-
-    # Define WCS system to convert to pixel apertures
-    wcs = WCS(fits.open(img_filename)[0].header, naxis=[1,2])
+    try:
+        # Open
+        fitsfile = fits.open(img_filename)
+        # Loop through extensions to get the one with image data
+        img = fitsfile[0].data  # Default to first extension just in case
+        wcs = WCS(fitsfile[0].header, naxis=[1,2])  # ^^
+        for ext in fitsfile:
+            if 'IMAGE' in ext.header.get('EXTNAME','').upper():
+                img = ext.data
+                wcs = WCS(ext.header, naxis=[1,2])
+    except FileNotFoundError:
+        logging.warning('For '+target_name+', \''+fltr+'.fits\' not found, but there exists a corresponding aperture file')
+        return False, False
 
     ##############################
     # Find correct aperture size #
