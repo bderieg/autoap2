@@ -4,7 +4,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
 from astropy import units as u
-from regions import PixCoord, CirclePixelRegion, EllipseSkyRegion, EllipsePixelRegion
+from regions import PixCoord, CirclePixelRegion, EllipseSkyRegion, EllipsePixelRegion, RectanglePixelRegion
 import numpy as np
 from skimage.morphology import erosion, disk
 from skimage import feature, measure
@@ -182,7 +182,8 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
                 center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'), 
                 height=major_ax*axis_ratio*u.deg, 
                 width=major_ax*u.deg, 
-                angle=pa*u.deg
+                angle=pa*u.deg,
+                visual={'edgecolor':'green'}
                 )
         main_ap_props = {
                     "x" : (main_ap_sky.to_pixel(wcs)).center.xy[0],
@@ -203,32 +204,33 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
         # Find the average flux around the outside edge of the aperture
         flux_edge_avg = np.median(aperture_edge_cutout[np.nonzero(aperture_edge_cutout)])
 
-    ##############################
-    # Confirm aperture with user #
-    ##############################
+    ####################################
+    # Ask user for background location #
+    ####################################
 
-    class EditMainRegion:
-        def __init__(self, img, ap_props):
-            self.fig, self.ax = plt.subplots()
-            self.cm = plt.get_cmap('cividis').copy()
-            self.cm.set_under('black')
-            self.cm.set_over('black')
-            self.ax.imshow(img, cmap=self.cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
-            self.region = Ellipse(xy=(main_ap_props['x'],main_ap_props['y']), width=main_ap_props['width'], height=main_ap_props['height'], angle=main_ap_props['angle'], fill=False, ec='red')
-            self.ax.add_artist(self.region)
+    print(' ')
+    print('Click to select the center of a 10x10 background region; close window after final selection')
 
-    app = EditMainRegion(img, main_ap_props)
+    # Define click event
+    global bg_x, bg_y
+    bg_x = 0.0
+    bg_y = 0.0
+    def onclick(event):
+        global bg_x, bg_y
+        bg_x = event.xdata
+        bg_y = event.ydata
+        print(' ')
+        print('Last selection: (', event.xdata, ',', event.ydata, ')')
 
-    return aperture_full_cutout
+    fig, ax = plt.subplots()
+    cm = plt.get_cmap('cividis').copy()
+    cm.set_under('black')
+    cm.set_over('black')
+    ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
+    (main_ap_sky.to_pixel(wcs)).plot(ax=ax, lw=2.0)
+    cid = fig.canvas.mpl_connect('button_press_event', onclick)
+    plt.show()
 
-name = "NGC 1380"
+    bg_ap_pix = RectanglePixelRegion(PixCoord(bg_x,bg_y), width=10, height=10, visual={'edgecolor':'blue'})
 
-target_cutout = fit_ellipse_with_coordinates(
-        "/home/ben/Desktop/research/research_boizelle_working/FITS/NGC13802MASS_H.fits",
-        gnd.get_coords(name),
-        gnd.get_ellipse_parameters(name)["axis_ratio"],
-        gnd.get_ellipse_parameters(name)["position_angle"],
-        find_background_flux("/home/ben/Desktop/research/research_boizelle_working/FITS/NGC13802MASS_H.fits")
-        )
-
-find_blobs(target_cutout, find_background_flux("/home/ben/Desktop/research/research_boizelle_working/FITS/NGC13802MASS_H.fits"))
+    return main_ap_sky, bg_ap_pix
