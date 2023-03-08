@@ -14,6 +14,8 @@ from tkinter import ttk
 import tkinter as tk
 import threading
 from matplotlib.patches import Ellipse
+import subprocess as sp
+from multiprocessing import Process
 
 
 def find_background_flux(img_filename):
@@ -148,16 +150,6 @@ def find_blobs(img, background_flux):
     # # Confirm blob detections with user #
     # #####################################
 
-    # fig, ax = plt.subplots()
-    # cm = plt.get_cmap('cividis').copy()
-    # cm.set_under('black')
-    # cm.set_over('black')
-    # ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
-    # for cx, cy, r, pa, flat in zip(centroids_x, centroids_y, radii, position_angles, flattenings):
-    #     region = EllipsePixelRegion(center=PixCoord(x=cx,y=cy), width=2*r, height=2*r/flat, angle=pa*u.rad)
-    #     region.plot(ax=ax, color='red', lw=2.0)
-    # plt.show()
-
     sub_aps = []
     for cx, cy, r, pa, flat in zip(centroids_x, centroids_y, radii, position_angles, flattenings):
         sub_aps.append(EllipsePixelRegion(center=PixCoord(x=cx,y=cy), width=2*r, height=2*r/flat, angle=pa*u.rad, visual={'edgecolor':'red'}))
@@ -228,6 +220,40 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
 
         # Find the average flux around the outside edge of the aperture
         flux_edge_avg = np.median(aperture_edge_cutout[np.nonzero(aperture_edge_cutout)])
+
+    ##############################
+    # Confirm aperture with user #
+    ##############################
+
+    fig, ax = plt.subplots()
+    cm = plt.get_cmap('cividis').copy()
+    cm.set_under('black')
+    cm.set_over('black')
+    ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
+    (main_ap_sky.to_pixel(wcs)).plot(ax=ax, lw=2.0)
+    plt.show(block=False)
+
+    print(' ')
+    curinp = input('Are you satisfied with this aperture? (y/n) : ')
+    plt.show()
+    if curinp == "n" or curinp == "N":
+        # Temporarily save aperture
+        main_ap_sky.write('./mainap_temp_autoap2.reg', format='ds9', overwrite=True)
+        # Open DS9 for user to edit aperture
+        def open_ds9(img_path):
+            sp.run(["ds9", img_path, "-region", './mainap_temp_autoap2.reg'])
+        ds9proc = Process(target=open_ds9, args=(img_filename,))
+        ds9proc.start()
+        # Prompt user to save the new aperture when ready
+        print(' ')
+        print('A DS9 window should open . . . ')
+        print(' ')
+        input('. . . edit the aperture as desired, then type anything here when done to save (do not close DS9 manually) : ')
+        ds9proc.terminate()
+        # Read in newly-saved aperture file as the new region
+        input("temp")
+        # Delete temporary region file
+        sp.run(["rm", "./mainap_temp_autoap2.reg"])
 
     ####################################
     # Ask user for background location #
