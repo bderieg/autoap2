@@ -146,13 +146,65 @@ def find_blobs(img, background_flux):
     position_angles = np.compress(target_blob_mask, position_angles)
     flattenings = np.compress(target_blob_mask, flattenings)
 
-    # #####################################
-    # # Confirm blob detections with user #
-    # #####################################
+    ###################
+    # Store apertures #
+    ###################
 
     sub_aps = []
     for cx, cy, r, pa, flat in zip(centroids_x, centroids_y, radii, position_angles, flattenings):
         sub_aps.append(EllipsePixelRegion(center=PixCoord(x=cx,y=cy), width=2*r, height=2*r/flat, angle=pa*u.rad, visual={'edgecolor':'red'}))
+
+    ###############################
+    # Confirm apertures with user #
+    ###############################
+
+    # Display aperture with matplotlib for confirmation
+    fig, ax = plt.subplots()
+    cm = plt.get_cmap('cividis').copy()
+    cm.set_under('black')
+    cm.set_over('black')
+    ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
+    for ap in sub_aps:
+        ap.plot(ax=ax, lw=2.0)
+    plt.show(block=False)
+
+    # Is the user satisfied?
+    print(' ')
+    curinp = input('Are you satisfied with this aperture? (y/n) : ')
+
+    # If the user is not satisfied . . . 
+    if curinp == "n" or curinp == "N":
+        # Temporarily save apertures
+        Regions(sub_aps).write('./subaps_temp_autoap2.reg', format='ds9', overwrite=True)
+        input('temp')
+
+        # Open DS9 for user to edit aperture
+        def open_ds9(img_path):
+            sp.run(["ds9", img_path, "-region", './subaps_temp_autoap2.reg'])
+        ds9proc = Process(target=open_ds9, args=(img_filename,))
+        ds9proc.start()
+
+        # Prompt user to save the new aperture when ready
+        print(' ')
+        input('A DS9 window should open; edit the apertures as desired, then type anything here when done to save (do not close DS9 manually) : ')
+        ds9proc.terminate()
+
+        # Read in newly-saved aperture file as the new region
+        sp.run(["xpaset","-p","ds9","region","system","wcs"])
+        sp.run(["xpaset","-p","ds9","region","sky","icrs"])
+        sp.run(["xpaset","-p","ds9","region","skyformat","degrees"])
+        sp.run(["xpaset","-p","ds9","region","save","./subaps_temp_autoap2.reg"])
+        sub_aps = (Regions.read('./subaps_temp_autoap2.reg', format='ds9'))
+
+        # Delete temporary region file
+        sp.run(["rm", "./subaps_temp_autoap2.reg"])
+
+    # Close pyplot if still open
+    plt.close()
+
+    ####################
+    # Return apertures #
+    ####################
 
     return sub_aps
 
@@ -225,6 +277,7 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
     # Confirm aperture with user #
     ##############################
 
+    # Display aperture with matplotlib for confirmation
     fig, ax = plt.subplots()
     cm = plt.get_cmap('cividis').copy()
     cm.set_under('black')
@@ -233,27 +286,38 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
     (main_ap_sky.to_pixel(wcs)).plot(ax=ax, lw=2.0)
     plt.show(block=False)
 
+    # Is the user satisfied?
     print(' ')
     curinp = input('Are you satisfied with this aperture? (y/n) : ')
-    plt.show()
+
+    # If the user is not satisfied . . . 
     if curinp == "n" or curinp == "N":
         # Temporarily save aperture
         main_ap_sky.write('./mainap_temp_autoap2.reg', format='ds9', overwrite=True)
+
         # Open DS9 for user to edit aperture
         def open_ds9(img_path):
             sp.run(["ds9", img_path, "-region", './mainap_temp_autoap2.reg'])
         ds9proc = Process(target=open_ds9, args=(img_filename,))
         ds9proc.start()
+
         # Prompt user to save the new aperture when ready
         print(' ')
-        print('A DS9 window should open . . . ')
-        print(' ')
-        input('. . . edit the aperture as desired, then type anything here when done to save (do not close DS9 manually) : ')
+        input('A DS9 window should open; edit the aperture as desired, then type anything here when done to save (do not close DS9 manually) : ')
         ds9proc.terminate()
+
         # Read in newly-saved aperture file as the new region
-        input("temp")
+        sp.run(["xpaset","-p","ds9","region","system","wcs"])
+        sp.run(["xpaset","-p","ds9","region","sky","icrs"])
+        sp.run(["xpaset","-p","ds9","region","skyformat","degrees"])
+        sp.run(["xpaset","-p","ds9","region","save","./mainap_temp_autoap2.reg"])
+        main_ap_sky = (Regions.read('./mainap_temp_autoap2.reg', format='ds9'))[0]
+
         # Delete temporary region file
         sp.run(["rm", "./mainap_temp_autoap2.reg"])
+
+    # Close pyplot if still open
+    plt.close()
 
     ####################################
     # Ask user for background location #
