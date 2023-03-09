@@ -11,6 +11,7 @@ def get_ellipse_parameters(target_name):
             pa.append(diameters_table[itr]["Position Angle"])
         elif diameters_table[itr]["Axis Ratio Flag"] == "(b/a)":
             a_to_b_ratios.append(1/diameters_table[itr]["Axis Ratio"])
+            pa.append(90-diameters_table[itr]["Position Angle"])
     avg_ratio = mean(a_to_b_ratios)
     avg_pa = mean(pa)
     return {"axis_ratio" : avg_ratio, "position_angle" : avg_pa}

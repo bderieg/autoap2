@@ -21,21 +21,6 @@ import logging
 
 workdir = ""
 
-############################
-# Flux integration routine #
-############################
-
-def integrate_flux(cutout, background):
-    flux = 0
-
-    for row in cutout:
-        for pix_val in row:
-            if pix_val==pix_val and pix_val!=0.0:
-                flux += pix_val
-                flux -= background
-
-    return flux
-
 #######################
 #######################
 ## Start main script ##
@@ -96,7 +81,7 @@ for target in target_names:
                     )
             main_ap_pix = main_ap_sky.to_pixel(wcs)
             # Algorithmically determine subtraction apertures
-            sub_aps_pix = imf.find_blobs(img, main_ap_pix.to_mask(), integrate_flux((bg_ap_pix.to_mask()).multiply(img),0)/100)
+            sub_aps_pix = imf.find_blobs(img, main_ap_pix.to_mask(), imf.integrate_flux((bg_ap_pix.to_mask()).multiply(img),0)/100)
             sub_aps_sky = [ap.to_sky(wcs) for ap in sub_aps_pix]
             # Write out apertures to files
             main_sub_aps = Regions([main_ap_sky] + sub_aps_sky)

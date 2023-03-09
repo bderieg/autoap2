@@ -18,6 +18,18 @@ import subprocess as sp
 from multiprocessing import Process
 
 
+def integrate_flux(cutout, background):
+    flux = 0
+
+    for row in cutout:
+        for pix_val in row:
+            if pix_val==pix_val and pix_val!=0.0:
+                flux += pix_val
+                flux -= background
+
+    return flux
+
+
 def find_background_flux(img_filename):
 
     ##############
@@ -71,6 +83,12 @@ def find_blobs(full_img, main_mask, background_flux):
     xcut = ((main_mask.get_overlap_slices(full_img.shape)[0])[1]).start
     ycut = ((main_mask.get_overlap_slices(full_img.shape)[0])[0]).start
 
+    ######################
+    # Set blob threshold #
+    ######################
+
+    bth = 0.1 * (np.nanmax(img) - background_flux)
+
     ###########################
     # Create dummy WCS object #
     ###########################
@@ -102,10 +120,11 @@ def find_blobs(full_img, main_mask, background_flux):
     # Run Laplacian of Gaussian method for detection
     blob_log = feature.blob_log(
             img, 
-            min_sigma=1.5, 
-            max_sigma=0.5*len(img), 
-            threshold=background_flux+0.01*(np.nanmax(img)-background_flux),
-            overlap=0.95
+            min_sigma=0.5, 
+            max_sigma=0.1*len(img), 
+            num_sigma=40,
+            threshold_rel=0.005,
+            overlap=0.0
             )
 
     # Populate list of blobs' coordinates and radii
@@ -113,7 +132,7 @@ def find_blobs(full_img, main_mask, background_flux):
     for blob in blob_log:
         y, x, r = blob
         blobs.append((x,y,r))
-
+    
     ###########################################
     # Use moments to get blob characteristics #
     ###########################################
@@ -130,20 +149,26 @@ def find_blobs(full_img, main_mask, background_flux):
         if (r == 0) or (x == 0) or (y == 0):
             continue
 
-        # Blow up to a reasonably sized radius
-        r *= 4
+        # Recover radius (blow up to a reasonable size)
+        r *= 2
 
         # Define region for use in moment calculation
         source_region = img[int(y-r):int(y+r), int(x-r):int(x+r)].copy()
+        
+        # Filter some apertures
+        ## Blank aperture
+        if source_region.size == 0:
+            continue
+        ## Not masking anything significant
+        if np.nanmax(source_region) < bth:
+            continue
 
         # Arbitrarily threshold image to make moment calculation more effective
-        thresh_bin_mask = source_region < (0.05*(np.max(source_region)-np.min(source_region))-np.min(source_region))
+        thresh_bin_mask = source_region < (0.8*(np.max(source_region)-np.min(source_region))-np.min(source_region))
         source_region[thresh_bin_mask] = 0
 
         # Calculate raw moment and centroid
         raw_moment = measure.moments(source_region)
-        centroids_x.append(x - (len(source_region[0])/2 - raw_moment[1,0]/raw_moment[0,0]))
-        centroids_y.append(y - (len(source_region)/2 - raw_moment[0,1]/raw_moment[0,0]))
 
         # Calculate central moment and covariance matrix
         central_moment = measure.moments_central(source_region)
@@ -155,13 +180,21 @@ def find_blobs(full_img, main_mask, background_flux):
 
         # Calculate position angle
         pa = 0.5 * np.arctan2(2 * central_moment_norm[1,1], central_moment_norm[2,0] - central_moment_norm[0,2])
-        position_angles.append(pa)
 
         # Calculate flattening
         flat = np.sqrt(np.min(eigenvalues) / np.max(eigenvalues))
-        flattenings.append(flat)
 
-        # Add radius to list
+        # Throw away aperture in case of weirdness
+        if flat == 0 or\
+                flat == 1 or\
+                r <= 1.0:
+            continue
+
+        # Add values to lists
+        centroids_x.append(x - (len(source_region[0])/2 - raw_moment[1,0]/raw_moment[0,0]))
+        centroids_y.append(y - (len(source_region)/2 - raw_moment[0,1]/raw_moment[0,0]))
+        flattenings.append(flat)
+        position_angles.append(pa)
         radii.append(r)
 
     ########################################################
