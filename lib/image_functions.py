@@ -32,9 +32,9 @@ def find_background_flux(img_filename):
         img = fitsfile[0].data  # Default to first extension just in case
         for ext in fitsfile:
             if 'IMAGE' in ext.header.get('EXTNAME','').upper():
+                # Get image data
                 img = ext.data
     except FileNotFoundError:
-        logging.warning('For '+target_name+', \''+fltr+'.fits\' not found, but there exists a corresponding aperture file')
         return 0.0
 
     #############################
@@ -59,7 +59,41 @@ def find_background_flux(img_filename):
     return background_flux
 
 
-def find_blobs(img, background_flux):
+def find_blobs(full_img, main_mask, background_flux):
+
+    ##############
+    # Get cutout #
+    ##############
+
+    # Cutout
+    img = main_mask.multiply(full_img)
+    # Indices of removed pixels to be readded later
+    xcut = ((main_mask.get_overlap_slices(full_img.shape)[0])[1]).start
+    ycut = ((main_mask.get_overlap_slices(full_img.shape)[0])[0]).start
+
+    ###########################
+    # Create dummy WCS object #
+    ###########################
+
+    header = fits.Header()
+    header['SIMPLE'] = 'T'
+    header['BITPIX'] = -32
+    header['NAXIS'] = 2
+    header['NAXIS1'] = len(img)
+    header['NAXIS2'] = len(img[0])
+    header['CTYPE1'] = 'RA---TAN'
+    header['CTYPE2'] = 'DEC--TAN'
+    header['CRPIX1'] = 0.0
+    header['CRPIX2'] = 0.0
+    header['CRVAL1'] = 0.0
+    header['CRVAL2'] = 0.0
+    header['CDELT1'] = 1.0
+    header['CDELT2'] = 1.0
+    header['CUNIT1'] = 'deg'
+    header['CUNIT2'] = 'deg'
+    header['OBJECT'] = 'none'
+    header['EXPTIME'] = 1.0
+    wcs = WCS(header)
 
     ##########################
     # Perform blob detection #
@@ -146,9 +180,9 @@ def find_blobs(img, background_flux):
     position_angles = np.compress(target_blob_mask, position_angles)
     flattenings = np.compress(target_blob_mask, flattenings)
 
-    ###################
-    # Store apertures #
-    ###################
+    #############################
+    # Store apertures as a list #
+    #############################
 
     sub_aps = []
     for cx, cy, r, pa, flat in zip(centroids_x, centroids_y, radii, position_angles, flattenings):
@@ -158,30 +192,33 @@ def find_blobs(img, background_flux):
     # Confirm apertures with user #
     ###############################
 
-    # Display aperture with matplotlib for confirmation
+    # Display aperture with matplotlib
     fig, ax = plt.subplots()
     cm = plt.get_cmap('cividis').copy()
     cm.set_under('black')
     cm.set_over('black')
     ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
+    ## Plot subtraction apertures over image
     for ap in sub_aps:
         ap.plot(ax=ax, lw=2.0)
-    plt.show(block=False)
+    plt.show(block=False)  # To keep window open with terminal access
 
     # Is the user satisfied?
     print(' ')
-    curinp = input('Are you satisfied with this aperture? (y/n) : ')
+    curinp = input('Are you satisfied with these subtraction apertures? (y/n) : ')
 
     # If the user is not satisfied . . . 
     if curinp == "n" or curinp == "N":
         # Temporarily save apertures
-        Regions(sub_aps).write('./subaps_temp_autoap2.reg', format='ds9', overwrite=True)
-        input('temp')
+        Regions(sub_aps).write('./_temp_subaps_autoap2.reg', format='ds9', overwrite=True)
+
+        # Temporarily save image as fits
+        fits.writeto('./_temp_main_ap_autoap2.fits', img, header=header, overwrite=True)
 
         # Open DS9 for user to edit aperture
-        def open_ds9(img_path):
-            sp.run(["ds9", img_path, "-region", './subaps_temp_autoap2.reg'])
-        ds9proc = Process(target=open_ds9, args=(img_filename,))
+        def open_ds9():
+            sp.run(["ds9", './_temp_main_ap_autoap2.fits', "-region", './_temp_subaps_autoap2.reg'])
+        ds9proc = Process(target=open_ds9)
         ds9proc.start()
 
         # Prompt user to save the new aperture when ready
@@ -193,18 +230,25 @@ def find_blobs(img, background_flux):
         sp.run(["xpaset","-p","ds9","region","system","wcs"])
         sp.run(["xpaset","-p","ds9","region","sky","icrs"])
         sp.run(["xpaset","-p","ds9","region","skyformat","degrees"])
-        sp.run(["xpaset","-p","ds9","region","save","./subaps_temp_autoap2.reg"])
-        sub_aps = (Regions.read('./subaps_temp_autoap2.reg', format='ds9'))
+        sp.run(["xpaset","-p","ds9","region","save","./_temp_subaps_autoap2.reg"])
+        sub_aps = Regions.read('./_temp_subaps_autoap2.reg', format='ds9')
+        sub_aps = [ap.to_pixel(wcs) for ap in sub_aps]
 
         # Delete temporary region file
-        sp.run(["rm", "./subaps_temp_autoap2.reg"])
+        sp.run(["rm", "./_temp_subaps_autoap2.reg"])
+        sp.run(["rm", "./_temp_main_ap_autoap2.fits"])
 
     # Close pyplot if still open
     plt.close()
 
-    ####################
-    # Return apertures #
-    ####################
+    ############################################
+    # Re-add full image coordinates and return #
+    ############################################
+
+    for ap in sub_aps:
+        oldx = ap.center.x
+        oldy = ap.center.y
+        ap.center = PixCoord(oldx+xcut, oldy+ycut)
 
     return sub_aps
 
@@ -229,10 +273,11 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
         wcs = WCS(fitsfile[0].header, naxis=[1,2])  # ^^
         for ext in fitsfile:
             if 'IMAGE' in ext.header.get('EXTNAME','').upper():
+                # Get image data
                 img = ext.data
+                # Get WCS data
                 wcs = WCS(ext.header, naxis=[1,2])
     except FileNotFoundError:
-        logging.warning('For '+target_name+', \''+fltr+'.fits\' not found, but there exists a corresponding aperture file')
         return False, False
 
     ##############################
@@ -284,7 +329,7 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
     cm.set_over('black')
     ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
     (main_ap_sky.to_pixel(wcs)).plot(ax=ax, lw=2.0)
-    plt.show(block=False)
+    plt.show(block=False)  # Open matplotlib but keep terminal access
 
     # Is the user satisfied?
     print(' ')
@@ -293,28 +338,28 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
     # If the user is not satisfied . . . 
     if curinp == "n" or curinp == "N":
         # Temporarily save aperture
-        main_ap_sky.write('./mainap_temp_autoap2.reg', format='ds9', overwrite=True)
+        main_ap_sky.write('./_temp_mainap_autoap2.reg', format='ds9', overwrite=True)
 
         # Open DS9 for user to edit aperture
         def open_ds9(img_path):
-            sp.run(["ds9", img_path, "-region", './mainap_temp_autoap2.reg'])
+            sp.run(["ds9", img_path, "-region", './_temp_mainap_autoap2.reg'])
         ds9proc = Process(target=open_ds9, args=(img_filename,))
         ds9proc.start()
 
         # Prompt user to save the new aperture when ready
         print(' ')
         input('A DS9 window should open; edit the aperture as desired, then type anything here when done to save (do not close DS9 manually) : ')
-        ds9proc.terminate()
+        ds9proc.terminate()  # Terminate DS9 process
 
         # Read in newly-saved aperture file as the new region
         sp.run(["xpaset","-p","ds9","region","system","wcs"])
         sp.run(["xpaset","-p","ds9","region","sky","icrs"])
         sp.run(["xpaset","-p","ds9","region","skyformat","degrees"])
-        sp.run(["xpaset","-p","ds9","region","save","./mainap_temp_autoap2.reg"])
-        main_ap_sky = (Regions.read('./mainap_temp_autoap2.reg', format='ds9'))[0]
+        sp.run(["xpaset","-p","ds9","region","save","./_temp_mainap_autoap2.reg"])
+        main_ap_sky = (Regions.read('./_temp_mainap_autoap2.reg', format='ds9'))[0]
 
         # Delete temporary region file
-        sp.run(["rm", "./mainap_temp_autoap2.reg"])
+        sp.run(["rm", "./_temp_mainap_autoap2.reg"])
 
     # Close pyplot if still open
     plt.close()
@@ -337,6 +382,7 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
         print(' ')
         print('Last selection: (', event.xdata, ',', event.ydata, ')')
 
+    # Display image
     fig, ax = plt.subplots()
     cm = plt.get_cmap('cividis').copy()
     cm.set_under('black')
@@ -346,6 +392,7 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
     cid = fig.canvas.mpl_connect('button_press_event', onclick)
     plt.show()
 
+    # Define background aperture based on final click location
     bg_ap_pix = RectanglePixelRegion(PixCoord(bg_x,bg_y), width=10, height=10, visual={'edgecolor':'blue'})
 
     return main_ap_sky, bg_ap_pix

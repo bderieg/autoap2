@@ -79,7 +79,9 @@ for target in target_names:
                 wcs = WCS(fitsfile[0].header, naxis=[1,2])  # ^^
                 for ext in fitsfile:
                     if 'IMAGE' in ext.header.get('EXTNAME','').upper():
+                        # Get image data
                         img = ext.data
+                        # Get WCS data
                         wcs = WCS(ext.header, naxis=[1,2])
             except FileNotFoundError:
                 logging.warning('For '+target_name+', \''+fltr+'.fits\' not found, but there exists a corresponding aperture file')
@@ -94,11 +96,11 @@ for target in target_names:
                     )
             main_ap_pix = main_ap_sky.to_pixel(wcs)
             # Algorithmically determine subtraction apertures
-            sub_aps_pix = imf.find_blobs((main_ap_pix.to_mask()).multiply(img), integrate_flux((bg_ap_pix.to_mask()).multiply(img),0)/100)
+            sub_aps_pix = imf.find_blobs(img, main_ap_pix.to_mask(), integrate_flux((bg_ap_pix.to_mask()).multiply(img),0)/100)
+            sub_aps_sky = [ap.to_sky(wcs) for ap in sub_aps_pix]
             # Write out apertures to files
-            main_sub_aps = Regions([main_ap_pix] + sub_aps_pix)
+            main_sub_aps = Regions([main_ap_sky] + sub_aps_sky)
             bg_ap_pix.write(workdir+target+"/apertures/background"+fltr+".reg", format='ds9', overwrite=True)
             main_sub_aps.write(workdir+target+"/apertures/"+fltr+".reg", format='ds9', overwrite=True)
-    else:
+    else:  # If a given image doesn't exist
         logging.warning("A target was specified, but no corresponding folder was found, so no photometry was done")
-
