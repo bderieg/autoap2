@@ -295,10 +295,10 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, backgroun
 
     # Define some constants
     major_ax = 1e-3
-    rad_increment = 1e-3
+    rad_increment = 5e-3
     threshold = 0.0005
     pa = 0  # Arbitrary position angle; will be fixed later
-    sb_res = 50
+    sb_res = 30
 
     # Open image as 2D numpy array
     try:
@@ -319,7 +319,7 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, backgroun
     ##############################
     # Find correct aperture size #
     ##############################
-    
+
     # Make aperture bigger, iterating until a threshold is reached
     flux_max = 1e9  # Arbitrary starting value
     flux_edge_avg = flux_max
@@ -364,7 +364,7 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, backgroun
     # Calculate edge flux variance for each pa
     pas = []
     variances = []
-    for curpa in range(0, 360):
+    for curpa in range(0, 360, 2):
         # Define the main aperture
         main_ap_sky = EllipseSkyRegion(
                 center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'), 
@@ -415,7 +415,7 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, backgroun
     sbs = []
 
     # Continually shrink the ellipse and calculate surface brightness
-    for temp_major_ax in np.arange(major_ax, major_ax/sb_res, -major_ax/sb_res, dtype=float):
+    for temp_major_ax in np.logspace(np.log10(major_ax), np.log10(major_ax/sb_res), sb_res, base=10):
         # Define the main aperture
         main_ap_sky = EllipseSkyRegion(
                 center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'), 

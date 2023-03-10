@@ -9,14 +9,9 @@ def get_ellipse_parameters(target_name):
         if isinstance(diameters_table[itr]["Axis Ratio"], float):
             if diameters_table[itr]["Axis Ratio"] <= 1.0:
                 a_to_b_ratios.append(diameters_table[itr]["Axis Ratio"])
-                if diameters_table[itr]["Position Angle"] > 0:
-                    pa.append(diameters_table[itr]["Position Angle"])
             else:
                 a_to_b_ratios.append(1/diameters_table[itr]["Axis Ratio"])
-                if diameters_table[itr]["Position Angle"] > 0:
-                    pa.append(diameters_table[itr]["Position Angle"])
     avg_ratio = mean(a_to_b_ratios)
-    avg_pa = mean(pa)
     return {"axis_ratio" : avg_ratio}
 
 
