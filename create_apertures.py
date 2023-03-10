@@ -76,7 +76,6 @@ for target in target_names:
                     img_path,
                     gnd.get_coords(target),
                     gnd.get_ellipse_parameters(target)["axis_ratio"],
-                    gnd.get_ellipse_parameters(target)["position_angle"],
                     imf.find_background_flux(img_path)
                     )
             main_ap_pix = main_ap_sky.to_pixel(wcs)

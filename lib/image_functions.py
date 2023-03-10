@@ -9,9 +9,6 @@ import numpy as np
 from skimage.morphology import erosion, disk
 from skimage import feature, measure
 import matplotlib.colors as colors
-import PySimpleGUI as sg
-from tkinter import ttk
-import tkinter as tk
 import threading
 from matplotlib.patches import Ellipse
 import subprocess as sp
@@ -187,7 +184,9 @@ def find_blobs(full_img, main_mask, background_flux):
         # Throw away aperture in case of weirdness
         if flat == 0 or\
                 flat == 1 or\
-                r <= 1.0:
+                flat < 0.05 or\
+                r <= 1.0 or\
+                r >= 0.5*len(img):
             continue
 
         # Add values to lists
@@ -257,7 +256,6 @@ def find_blobs(full_img, main_mask, background_flux):
         # Prompt user to save the new aperture when ready
         print(' ')
         input('A DS9 window should open; edit the apertures as desired, then type anything here when done to save (do not close DS9 manually) : ')
-        ds9proc.terminate()
 
         # Read in newly-saved aperture file as the new region
         sp.run(["xpaset","-p","ds9","region","system","wcs"])
@@ -266,6 +264,9 @@ def find_blobs(full_img, main_mask, background_flux):
         sp.run(["xpaset","-p","ds9","region","save","./_temp_subaps_autoap2.reg"])
         sub_aps = Regions.read('./_temp_subaps_autoap2.reg', format='ds9')
         sub_aps = [ap.to_pixel(wcs) for ap in sub_aps]
+
+        # Close DS9
+        sp.run(["xpaset","-p","ds9","exit"])
 
         # Delete temporary region file
         sp.run(["rm", "./_temp_subaps_autoap2.reg"])
@@ -286,16 +287,18 @@ def find_blobs(full_img, main_mask, background_flux):
     return sub_aps
 
 
-def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, background_flux):
+def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, background_flux):
 
     #####################
     # Set some stuff up #
     #####################
 
     # Define some constants
-    major_ax = 0.01
-    rad_increment = 0.005
-    threshold = 0.005
+    major_ax = 1e-3
+    rad_increment = 1e-3
+    threshold = 0.0005
+    pa = 0  # Arbitrary position angle; will be fixed later
+    sb_res = 50
 
     # Open image as 2D numpy array
     try:
@@ -316,7 +319,7 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
     ##############################
     # Find correct aperture size #
     ##############################
-
+    
     # Make aperture bigger, iterating until a threshold is reached
     flux_max = 1e9  # Arbitrary starting value
     flux_edge_avg = flux_max
@@ -351,6 +354,119 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
         # Find the average flux around the outside edge of the aperture
         flux_edge_avg = np.median(aperture_edge_cutout[np.nonzero(aperture_edge_cutout)])
 
+    #######################################
+    # Rotate ellipse to align with galaxy #
+    #######################################
+
+    # Shrink the ellipse a little for better fitting
+    major_ax /= 4
+
+    # Calculate edge flux variance for each pa
+    pas = []
+    variances = []
+    for curpa in range(0, 360):
+        # Define the main aperture
+        main_ap_sky = EllipseSkyRegion(
+                center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'), 
+                height=major_ax*axis_ratio*u.deg, 
+                width=major_ax*u.deg, 
+                angle=curpa*u.deg,
+                visual={'edgecolor':'green'}
+                )
+        main_ap_props = {
+                    "x" : (main_ap_sky.to_pixel(wcs)).center.xy[0],
+                    "y" : (main_ap_sky.to_pixel(wcs)).center.xy[1],
+                    "width" : (main_ap_sky.to_pixel(wcs)).width,
+                    "height" : (main_ap_sky.to_pixel(wcs)).height,
+                    "angle" : (main_ap_sky.to_pixel(wcs)).angle.value
+                }
+
+        # Get cutouts
+        aperture_full_mask = (main_ap_sky.to_pixel(wcs)).to_mask()
+        aperture_edge_mask = aperture_full_mask - erosion(aperture_full_mask, disk(2))
+        aperture_full_cutout = aperture_full_mask.multiply(img)
+        aperture_edge_cutout = aperture_full_cutout * aperture_edge_mask 
+
+        # Calculate variance
+        flux_edge_var = np.var(aperture_edge_cutout[np.nonzero(aperture_edge_cutout)])
+        pas.append(curpa)
+        variances.append(flux_edge_var)
+
+    # Reset aperture size
+    major_ax *= 4
+
+    # Get minimum variance and set pa
+    minvarind = np.where(variances == np.min(variances))[0][0]
+    pa = pas[minvarind]
+    main_ap_sky = EllipseSkyRegion(
+            center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'), 
+            height=major_ax*axis_ratio*u.deg, 
+            width=major_ax*u.deg, 
+            angle=pa*u.deg,
+            visual={'edgecolor':'green'}
+            )
+
+    ########################################
+    # Calculate surface brightness profile #
+    ########################################
+
+    # Define some lists
+    rads = []
+    sbs = []
+
+    # Continually shrink the ellipse and calculate surface brightness
+    for temp_major_ax in np.arange(major_ax, major_ax/sb_res, -major_ax/sb_res, dtype=float):
+        # Define the main aperture
+        main_ap_sky = EllipseSkyRegion(
+                center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'), 
+                height=temp_major_ax*axis_ratio*u.deg, 
+                width=temp_major_ax*u.deg, 
+                angle=pa*u.deg,
+                visual={'edgecolor':'green'}
+                )
+        main_ap_props = {
+                    "x" : (main_ap_sky.to_pixel(wcs)).center.xy[0],
+                    "y" : (main_ap_sky.to_pixel(wcs)).center.xy[1],
+                    "width" : (main_ap_sky.to_pixel(wcs)).width,
+                    "height" : (main_ap_sky.to_pixel(wcs)).height,
+                    "angle" : (main_ap_sky.to_pixel(wcs)).angle.value
+                }
+
+        # Get cutouts
+        aperture_full_mask = (main_ap_sky.to_pixel(wcs)).to_mask()
+        aperture_edge_mask = aperture_full_mask - erosion(aperture_full_mask, disk(2))
+        aperture_full_cutout = aperture_full_mask.multiply(img)
+        aperture_edge_cutout = aperture_full_cutout * aperture_edge_mask 
+
+        # Get edge surface brightness
+        flux_edge_avg = np.median(aperture_edge_cutout[np.nonzero(aperture_edge_cutout)])
+
+        # Update lists
+        rads.append(temp_major_ax)
+        sbs.append(flux_edge_avg)
+
+    #########################
+    # Restore aperture size #
+    #########################
+
+    main_ap_sky = EllipseSkyRegion(
+            center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'), 
+            height=major_ax*axis_ratio*u.deg, 
+            width=major_ax*u.deg, 
+            angle=pa*u.deg,
+            visual={'edgecolor':'green'}
+            )
+
+    ###################################
+    # Plot surface brightness profile #
+    ###################################
+
+    plt.loglog([i*3600 for i in rads], sbs, 'k.')
+    plt.title('Surface Brightness Profile')
+    plt.xlabel('Major Axis (arcsec)')
+    plt.ylabel('Average Surface Brightness (image unit)')
+    plt.show(block=False)  # Open matplotlib but keep terminal access
+
     ##############################
     # Confirm aperture with user #
     ##############################
@@ -382,7 +498,6 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
         # Prompt user to save the new aperture when ready
         print(' ')
         input('A DS9 window should open; edit the aperture as desired, then type anything here when done to save (do not close DS9 manually) : ')
-        ds9proc.terminate()  # Terminate DS9 process
 
         # Read in newly-saved aperture file as the new region
         sp.run(["xpaset","-p","ds9","region","system","wcs"])
@@ -391,11 +506,14 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, pa, backg
         sp.run(["xpaset","-p","ds9","region","save","./_temp_mainap_autoap2.reg"])
         main_ap_sky = (Regions.read('./_temp_mainap_autoap2.reg', format='ds9'))[0]
 
+        # Close DS9
+        sp.run(["xpaset","-p","ds9","exit"])
+
         # Delete temporary region file
         sp.run(["rm", "./_temp_mainap_autoap2.reg"])
 
     # Close pyplot if still open
-    plt.close()
+    plt.close('all')
 
     ####################################
     # Ask user for background location #
