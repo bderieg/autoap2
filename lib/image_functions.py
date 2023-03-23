@@ -3,6 +3,7 @@ import get_ned_data as gnd
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
+from astropy.modeling import functional_models as fm
 from astropy import units as u
 from regions import Regions, PixCoord, CirclePixelRegion, EllipseSkyRegion, EllipsePixelRegion, RectanglePixelRegion
 import numpy as np
@@ -13,6 +14,8 @@ import threading
 from matplotlib.patches import Ellipse
 import subprocess as sp
 from multiprocessing import Process
+from astropy.modeling.fitting import LevMarLSQFitter
+from astropy.modeling.models import Sersic1D
 
 
 def integrate_flux(cutout, background):
@@ -465,6 +468,7 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, backgroun
     plt.title('Surface Brightness Profile')
     plt.xlabel('Major Axis (arcsec)')
     plt.ylabel('Average Surface Brightness (image unit)')
+    plt.plot([i*3600 for i in rads], sersic_fitted([i*3600 for i in rads]), 'r')
     plt.show(block=False)  # Open matplotlib but keep terminal access
 
     ##############################

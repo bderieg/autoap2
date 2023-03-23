@@ -58,9 +58,10 @@ def full_photometry(target_name, background):
     filter_names = []
     for r, d, f in os.walk(workdir+subdir+'apertures/'):
         for file in f:
-            full_path = workdir+subdir+'apertures/'+file
-            ap_file_paths.append(full_path)
-            filter_names.append(file)
+            if "background" not in file:
+                full_path = workdir+subdir+'apertures/'+file
+                ap_file_paths.append(full_path)
+                filter_names.append(file.replace('.reg',''))
 
     # Iterate through fits files
     for fltr, ap_path in zip(filter_names, ap_file_paths):

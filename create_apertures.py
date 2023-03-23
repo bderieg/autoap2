@@ -48,12 +48,20 @@ else:
     target_names = input("Enter (as a comma-separated list) the desired targets : ")
     target_names = target_names.split(',')
 
-# Loop through targets
+########################
+# Loop through targets #
+########################
+
 for target in target_names:
     if target in subdirs:
         filters = [(f.name).replace('.fits','') for f in os.scandir(workdir+target+"/fits/")]
         # Loop through images for this target
         for fltr in filters:
+            # Describe to terminal
+            print(' ')
+            print(' ')
+            print('########## ' + target + ' ' + fltr + ' ##########')
+            print(' ')
             # Open image
             img_path = workdir+target+"/fits/"+fltr+".fits"
             try:
@@ -87,4 +95,4 @@ for target in target_names:
             bg_ap_pix.write(workdir+target+"/apertures/background"+fltr+".reg", format='ds9', overwrite=True)
             main_sub_aps.write(workdir+target+"/apertures/"+fltr+".reg", format='ds9', overwrite=True)
     else:  # If a given image doesn't exist
-        logging.warning("A target was specified, but no corresponding folder was found, so no photometry was done")
+        logging.warning("A target was specified, but no corresponding folder was found, so nothing was done.")
