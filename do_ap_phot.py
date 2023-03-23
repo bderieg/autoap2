@@ -4,6 +4,7 @@ sys.path.insert(0, './lib')
 sys.path.insert(0, './param_files')
 
 import matplotlib.pyplot as plt
+from matplotlib import colors
 from astropy.io import fits
 from astropy.wcs import WCS
 from regions import Regions
@@ -40,7 +41,7 @@ def integrate_flux(cutout, background):
 # Full aperture photometry routine #
 ####################################
 
-def full_photometry(target_name, background):
+def full_photometry(target_name):
     subdir = target_name + "/"
 
     # Import necessary static data
@@ -55,16 +56,19 @@ def full_photometry(target_name, background):
 
     # Get aperture file paths
     ap_file_paths = []
+    bg_ap_file_paths = []
     filter_names = []
     for r, d, f in os.walk(workdir+subdir+'apertures/'):
         for file in f:
             if "background" not in file:
                 full_path = workdir+subdir+'apertures/'+file
+                bg_path = workdir+subdir+'apertures/background'+file
                 ap_file_paths.append(full_path)
+                bg_ap_file_paths.append(bg_path)
                 filter_names.append(file.replace('.reg',''))
 
     # Iterate through fits files
-    for fltr, ap_path in zip(filter_names, ap_file_paths):
+    for fltr, ap_path, bg_ap_path in zip(filter_names, ap_file_paths, bg_ap_file_paths):
         # Get path for fits file corresponding to aperture
         fits_path = workdir+subdir+'fits/'+fltr+'.fits'
 
@@ -86,6 +90,14 @@ def full_photometry(target_name, background):
             logging.warning('For '+target_name+', \''+fltr+'.fits\' not found, but there exists a corresponding aperture file')
             continue
 
+        # Get background level
+        ## Get region file
+        bg_ap = Regions.read(bg_ap_path, format='ds9')[0]
+        ## Get background cutout
+        bg_cutout = (bg_ap.to_mask()).multiply(img)
+        ## Integrate background flux
+        background = integrate_flux(bg_cutout, 0.0) / (len(bg_cutout)-2)**2
+
         # Get apertures from file
         sky_aps = Regions.read(ap_path, format='ds9')
         ## Convert to pixel aperture
@@ -100,8 +112,9 @@ def full_photometry(target_name, background):
         # Measure flux in all apertures
         eff_radius = 1.0
         flux_final = 0
-        for cutout, color in zip(pix_ap_cutouts, ap_colors):
+        for cutout, color, ap in zip(pix_ap_cutouts, ap_colors, sky_aps):
             if color=='green':
+                eff_radius = (ap.width.value+ap.height.value)/2
                 flux_final += integrate_flux(cutout, background)
             elif color=='red':
                 flux_final -= integrate_flux(cutout, background)
@@ -169,6 +182,6 @@ else:
 
 for target in target_names:
     if target in subdirs:
-        full_photometry(target, 0)
+        full_photometry(target)
     else:
         logging.warning("A target was specified, but no corresponding folder was found, so no photometry was done")
