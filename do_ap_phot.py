@@ -11,6 +11,7 @@ from regions import Regions
 import json
 
 import flux_conversion
+import image_functions as imf
 
 import logging
 
@@ -48,8 +49,10 @@ def full_photometry(target_name):
     tele_wl = json.load(open('./param_files/telescope_wavelengths.json'))
     tele_filters = json.load(open('./param_files/telescope_filter_names.json'))
 
-    # Set up SED data structure (dict with wavelength/flux pairs)
+    # Set up SED data structure (dict with wavelength/flux(/other) pairs)
     sed_data = {}
+    sed_unc_upper = {}
+    sed_unc_lower = {}
     sed_flags = {}
     sed_filternames = {}
     sed_telescopenames = {}
@@ -84,6 +87,8 @@ def full_photometry(target_name):
                     img = ext.data
                     # Determine WCS for sky-to-pixel aperture conversion
                     wcs = WCS(ext.header, naxis=[1,2])
+            ## Get rid of redundant dimensions in data if necessary
+            img = img.squeeze()
             # Assume desired header is always in the first extension
             img_hdr = fitsfile[0].header
         except FileNotFoundError:
@@ -121,6 +126,14 @@ def full_photometry(target_name):
             else:
                 logging.warning('Ambiguity warning ... an aperture was an ambiguous color, so it was not used')
 
+        # Find uncertainties
+        stat_unc_upper = imf.calc_unc_background(img, bg_ap)
+        stat_unc_lower = imf.calc_unc_background(img, bg_ap)
+        abs_unc_upper = flux_final * flux_conversion.abs_unc[fltr]
+        abs_unc_lower = flux_final * flux_conversion.abs_unc[fltr]
+        total_unc_upper = (stat_unc_upper**2 + abs_unc_upper**2)**0.5
+        total_unc_lower = (stat_unc_lower**2 + abs_unc_lower**2)**0.5
+
         # Convert to units of Jy
         flux_final = flux_final *\
                 flux_conversion.brightness_conversion[fltr](img_hdr) *\
@@ -128,15 +141,37 @@ def full_photometry(target_name):
                 flux_conversion.pix_size[fltr](img_hdr) *\
                 flux_conversion.color_correction[fltr](img_hdr) *\
                 flux_conversion.other_correction[fltr](img_hdr, eff_radius)
+        total_unc_upper = total_unc_upper *\
+                flux_conversion.brightness_conversion[fltr](img_hdr) *\
+                (1/flux_conversion.beam_size[fltr](img_hdr)) *\
+                flux_conversion.pix_size[fltr](img_hdr) *\
+                flux_conversion.color_correction[fltr](img_hdr) *\
+                flux_conversion.other_correction[fltr](img_hdr, eff_radius)
+        total_unc_lower = total_unc_lower *\
+                flux_conversion.brightness_conversion[fltr](img_hdr) *\
+                (1/flux_conversion.beam_size[fltr](img_hdr)) *\
+                flux_conversion.pix_size[fltr](img_hdr) *\
+                flux_conversion.color_correction[fltr](img_hdr) *\
+                flux_conversion.other_correction[fltr](img_hdr, eff_radius)
 
         # Add data to SED structure
+        ## If ALMA image, get frequency from image
+        if 'ALMA' in fltr:
+            tele_wl[fltr] = img_hdr['RESTFRQ']
+        ## Check if a *distinct* measurement already exists at this wavelength
+        while tele_wl[fltr] in sed_filternames and sed_filternames[tele_wl[fltr]] != fltr:
+            tele_wl[fltr] += 1  # If so, increment the wavelength by one to distinguish (but keep essentially the same)
         sed_data[tele_wl[fltr]] = flux_final
+        sed_unc_upper[tele_wl[fltr]] = total_unc_upper
+        sed_unc_lower[tele_wl[fltr]] = total_unc_lower
         sed_filternames[tele_wl[fltr]] = fltr
         sed_telescopenames[tele_wl[fltr]] = tele_filters[fltr]
 
     # Write data to SED file
     sed_full = {target_name : {
             "sed_data" : sed_data,
+            "sed_unc_upper" : sed_unc_upper,
+            "sed_unc_lower" : sed_unc_lower,
             "sed_telescopenames" : sed_telescopenames,
             "sed_filternames" : sed_filternames,
             "sed_flags" : sed_flags
@@ -145,6 +180,9 @@ def full_photometry(target_name):
     try:
         all_sed_data = json.load(open(sed_data_loc))
         sed_outfile = open(sed_data_loc, 'w')
+        if target in all_sed_data:
+            if "sed_flags" in all_sed_data[target]:
+                sed_full[target]["sed_flags"] |= all_sed_data[target]["sed_flags"]
         all_sed_data |= sed_full
         json.dump(all_sed_data, sed_outfile, indent=5)
     except FileNotFoundError:
@@ -157,10 +195,6 @@ def full_photometry(target_name):
 ## Start main script ##
 #######################
 #######################
-
-#################################
-# Set constants with user input #
-#################################
 
 # Prompt to change working directory
 print(' ')

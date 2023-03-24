@@ -1,4 +1,10 @@
 {
+"ALMAExtendedLowerNat" : "ALMA Extended",
+"ALMAExtendedUpperNat" : "ALMA Extended",
+"ALMAExtendedLowerBri" : "ALMA Extended",
+"ALMAExtendedLowerBri" : "ALMA Extended",
+"ALMANuclearNat" : "ALMA Nuclear",
+"ALMANuclearBri" : "ALMA Nuclear",
 "SDSS_u" : "SDSS",
 "SDSS_g" : "SDSS",
 "SDSS_r" : "SDSS",

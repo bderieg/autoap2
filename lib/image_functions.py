@@ -17,6 +17,8 @@ from multiprocessing import Process
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.modeling.models import Sersic1D
 
+import logging
+
 
 def integrate_flux(cutout, background):
     flux = 0
@@ -551,3 +553,11 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, backgroun
     bg_ap_pix = RectanglePixelRegion(PixCoord(bg_x,bg_y), width=10, height=10, visual={'edgecolor':'blue'})
 
     return main_ap_sky, bg_ap_pix
+
+
+def calc_unc_background(img_data, bg_ap):
+
+    bg_cutout = (bg_ap.to_mask()).multiply(img_data)
+    bg_cutout = bg_cutout[1:-1,1:-1]  # Trim 0s
+
+    return np.sqrt( np.mean( bg_cutout**2 ) ) * len(bg_cutout)**2
