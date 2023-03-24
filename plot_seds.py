@@ -89,7 +89,10 @@ for target in target_names:
                 unique_legend_points,\
                 sed_unc_upper_arr, sed_unc_lower_arr):
             ax.scatter(xval, yval, marker=sed_ps[telename], color=sed_colors[telename], label=legendname)
-            ax.errorbar(xval, yval, yerr=unc_lower, fmt='none', ecolor='black', capsize=2.0)
+            if unc_upper < 0.0:
+                ax.errorbar(xval, yval, yerr=[[0.3*yval],[0]], uplims=True, fmt='none', ecolor='black')
+            else:
+                ax.errorbar(xval, yval, yerr=[[unc_lower],[unc_upper]], fmt='none', ecolor='black', capsize=2.0)
         # Set other plot parameters
         ax.set_xscale('log')
         ax.set_yscale('log')

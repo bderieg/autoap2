@@ -9,7 +9,11 @@ import json
 
 flag_names = [
         "u (to be calculated as upper limit)",
-        "l (to be calculated as lower limit)"
+        "r (unresolved contamination present)"
+        ]
+flag_names_short = [
+        "u",
+        "r"
         ]
 
 #######################
@@ -53,7 +57,7 @@ if target in subdirs:
             print('\t' + fl)
         print(' ')
         flag = input('Choose one of those flags to add : ')
-        if flag not in flag_names:
+        if flag not in flag_names_short:
             logging.warning("That's not a valid flag . . . exiting")
             exit()
 

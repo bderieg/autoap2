@@ -5,6 +5,7 @@ sys.path.insert(0, './param_files')
 
 import matplotlib.pyplot as plt
 from matplotlib import colors
+import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from regions import Regions
@@ -95,6 +96,16 @@ def full_photometry(target_name):
             logging.warning('For '+target_name+', \''+fltr+'.fits\' not found, but there exists a corresponding aperture file')
             continue
 
+        # Get flags if possible
+        sed_flags = {}
+        try:
+            all_sed_data_temp = json.load(open(sed_data_loc))
+            if target in all_sed_data_temp:
+                if 'sed_flags' in all_sed_data_temp[target]:
+                    sed_flags = all_sed_data_temp[target]['sed_flags']
+        except FileNotFoundError:
+            pass
+
         # Get background level
         ## Get region file
         bg_ap = Regions.read(bg_ap_path, format='ds9')[0]
@@ -133,6 +144,16 @@ def full_photometry(target_name):
         abs_unc_lower = flux_final * flux_conversion.abs_unc[fltr]
         total_unc_upper = (stat_unc_upper**2 + abs_unc_upper**2)**0.5
         total_unc_lower = (stat_unc_lower**2 + abs_unc_lower**2)**0.5
+
+        # If upper limit to be found, just do that and continue
+        if fltr in sed_flags:
+            if 'u' in sed_flags[fltr]:
+                correction = 1.0
+                if "PACS" in fltr:
+                    correction = flux_conversion.beam_size[fltr](header)
+                upper_limit = correction * 4.5*np.sqrt(np.mean(pix_ap_cutouts[0]**2))
+                total_unc_upper = -1
+                total_unc_lower = 0
 
         # Convert to units of Jy
         flux_final = flux_final *\
