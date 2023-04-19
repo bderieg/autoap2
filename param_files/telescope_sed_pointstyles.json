@@ -2,9 +2,11 @@
 "ALMA Extended" : "^",
 "ALMA Nuclear" : "v",
 "SDSS" : "+",
-"GALEX" : "D",
+"GALEX" : ">",
 "2MASS" : "X",
 "Herschel" : "o",
 "Spitzer" : "P",
-"WISE" : "s"
+"WISE" : "s",
+"IRAS" : "D",
+"ISO" : "*"
 }

@@ -92,7 +92,7 @@ for target in target_names:
             if unc_upper < 0.0:
                 ax.errorbar(xval, yval, yerr=[[0.3*yval],[0]], uplims=True, fmt='none', ecolor='black')
             else:
-                ax.errorbar(xval, yval, yerr=[[unc_lower],[unc_upper]], fmt='none', ecolor='black', capsize=2.0)
+                ax.errorbar(xval, yval, yerr=[[unc_lower],[unc_upper]], fmt='none', ecolor='black', capsize=0.0)
         # Set other plot parameters
         ax.set_xscale('log')
         ax.set_yscale('log')
@@ -103,7 +103,6 @@ for target in target_names:
         ax.set_ylim([0.3*min(sed_data_arr[1]), 3.0*max(sed_data_arr[1])])
         ax.xaxis.set_major_formatter(FuncFormatter(lambda x,pos : int(np.log10(x))))
         ax.yaxis.set_major_formatter(FuncFormatter(lambda x,pos : int(np.log10(x))))
-        plt.grid(True, ls='--')
         # Set twin wavelength axis
         axwl = ax.twiny()
         axwl.set_xlabel('Rest Wavelength (\u03BCm)')

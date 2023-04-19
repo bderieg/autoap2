@@ -6,5 +6,7 @@
 "2MASS" : "black",
 "Herschel" : "black",
 "Spitzer" : "black",
-"WISE" : "black"
+"WISE" : "black",
+"IRAS" : "black",
+"ISO" : "black"
 }

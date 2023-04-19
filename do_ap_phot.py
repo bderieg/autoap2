@@ -204,6 +204,20 @@ def full_photometry(target_name):
         if target in all_sed_data:
             if "sed_flags" in all_sed_data[target]:
                 sed_full[target]["sed_flags"] |= all_sed_data[target]["sed_flags"]
+            nfreqs = []
+            for freq in all_sed_data[target]["sed_filternames"]:
+                if "n" in all_sed_data[target]["sed_flags"][all_sed_data[target]["sed_filternames"][freq]]:
+                    nfreqs.append(float(freq))
+                    sed_full[target]["sed_flags"][all_sed_data[target]["sed_filternames"][freq]] = "n"
+            for freq in nfreqs:
+                origfreq = freq
+                while freq in sed_full[target]["sed_data"]:
+                    freq += 1.0
+                sed_full[target]["sed_data"][str(freq)] = all_sed_data[target]["sed_data"][str(origfreq)]
+                sed_full[target]["sed_unc_upper"][str(freq)] = all_sed_data[target]["sed_unc_upper"][str(origfreq)]
+                sed_full[target]["sed_unc_lower"][str(freq)] = all_sed_data[target]["sed_unc_lower"][str(origfreq)]
+                sed_full[target]["sed_telescopenames"][str(freq)] = all_sed_data[target]["sed_telescopenames"][str(origfreq)]
+                sed_full[target]["sed_filternames"][str(freq)] = all_sed_data[target]["sed_filternames"][str(origfreq)]
         all_sed_data |= sed_full
         json.dump(all_sed_data, sed_outfile, indent=5)
     except FileNotFoundError:

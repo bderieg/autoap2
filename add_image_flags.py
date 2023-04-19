@@ -9,11 +9,13 @@ import json
 
 flag_names = [
         "u (to be calculated as upper limit)",
-        "r (unresolved contamination present)"
+        "r (unresolved contamination present)",
+        "n (from NED)"
         ]
 flag_names_short = [
         "u",
-        "r"
+        "r",
+        "n"
         ]
 
 #######################
