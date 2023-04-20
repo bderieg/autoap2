@@ -24,55 +24,49 @@ def get_sed_data(target_name):
     sed_table = ned.get_table(target_name, table="photometry")
 
     sed = {
-            "sed_data" : {},
+            "sed_flux" : {},
+            "sed_freq" : {},
             "sed_unc_upper" : {},
             "sed_unc_lower" : {},
             "sed_telescopenames" : {},
-            "sed_filternames" : {},
             "sed_flags" : {}
         }
 
-    iras_itr = 0
-    iso_itr = 0
-    mips_itr = 0
+    band_itr = 0
     for row in sed_table:
         if row["Flux Density"] > 0.0:
-            # Increment frequency if already there
-            tempfreq = row["Frequency"]
-            while str(tempfreq) in sed["sed_data"]:
-                tempfreq += 1.0
             # IRAS
             if "quality flag" in row["Qualifiers"] and\
                     (("100" in row["Observed Passband"]) or ("60" in row["Observed Passband"])) and\
                     "IRAS" in row["Observed Passband"]:
-                sed["sed_data"][str(tempfreq)] = row["Flux Density"]
-                sed["sed_unc_upper"][str(tempfreq)] = row["Upper limit of uncertainty"]
-                sed["sed_unc_lower"][str(tempfreq)] = row["Lower limit of uncertainty"]
-                sed["sed_telescopenames"][str(tempfreq)] = "IRAS"
-                sed["sed_filternames"][str(tempfreq)] = row["Observed Passband"] + " " + str(iras_itr)
-                sed["sed_flags"][str(row["Observed Passband"]) + " " + str(iras_itr)] = "n"
-                iras_itr += 1
+                sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
+                sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
+                sed["sed_unc_upper"][row["Observed Passband"]+" "+str(band_itr)] = row["Upper limit of uncertainty"]
+                sed["sed_unc_lower"][row["Observed Passband"]+" "+str(band_itr)] = row["Lower limit of uncertainty"]
+                sed["sed_telescopenames"][row["Observed Passband"]+" "+str(band_itr)] = "IRAS"
+                sed["sed_flags"][row["Observed Passband"]+" "+str(band_itr)] = "n"
+                band_itr += 1
             # ISO
             if "ISO" in row["Observed Passband"] and\
                     "[" not in row["Observed Passband"] and\
                     row["Frequency"] < 1e13:
-                sed["sed_data"][str(tempfreq)] = row["Flux Density"]
-                sed["sed_unc_upper"][str(tempfreq)] = row["Upper limit of uncertainty"]
-                sed["sed_unc_lower"][str(tempfreq)] = row["Lower limit of uncertainty"]
-                sed["sed_telescopenames"][str(tempfreq)] = "ISO"
-                sed["sed_filternames"][str(tempfreq)] = row["Observed Passband"] + " " + str(iso_itr)
-                sed["sed_flags"][str(row["Observed Passband"]) + " " + str(iso_itr)] = "n"
-                iso_itr += 1
+                sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
+                sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
+                sed["sed_unc_upper"][row["Observed Passband"]+" "+str(band_itr)] = row["Upper limit of uncertainty"]
+                sed["sed_unc_lower"][row["Observed Passband"]+" "+str(band_itr)] = row["Lower limit of uncertainty"]
+                sed["sed_telescopenames"][row["Observed Passband"]+" "+str(band_itr)] = "ISO"
+                sed["sed_flags"][row["Observed Passband"]+" "+str(band_itr)] = "n"
+                band_itr += 1
             # Spitzer MIPS
             if "MIPS" in row["Observed Passband"] and\
                     "Total" in row["Spatial Mode"] and\
                     row["Frequency"] < 1e13:
-                sed["sed_data"][str(tempfreq)] = row["Flux Density"]
-                sed["sed_unc_upper"][str(tempfreq)] = row["Upper limit of uncertainty"]
-                sed["sed_unc_lower"][str(tempfreq)] = row["Lower limit of uncertainty"]
-                sed["sed_telescopenames"][str(tempfreq)] = "Spitzer"
-                sed["sed_filternames"][str(tempfreq)] = row["Observed Passband"] + " " + str(mips_itr)
-                sed["sed_flags"][str(row["Observed Passband"]) + " " + str(mips_itr)] = "n"
-                mips_itr += 1
+                sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
+                sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
+                sed["sed_unc_upper"][row["Observed Passband"]+" "+str(band_itr)] = row["Upper limit of uncertainty"]
+                sed["sed_unc_lower"][row["Observed Passband"]+" "+str(band_itr)] = row["Lower limit of uncertainty"]
+                sed["sed_telescopenames"][row["Observed Passband"]+" "+str(band_itr)] = "Spitzer"
+                sed["sed_flags"][row["Observed Passband"]+" "+str(band_itr)] = "n"
+                band_itr += 1
 
     return sed

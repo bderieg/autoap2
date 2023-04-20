@@ -50,13 +50,44 @@ def full_photometry(target_name):
     tele_wl = json.load(open('./param_files/telescope_wavelengths.json'))
     tele_filters = json.load(open('./param_files/telescope_filter_names.json'))
 
-    # Set up SED data structure (dict with wavelength/flux(/other) pairs)
+    # Set up data structure (retrieve if it exists)
     sed_data = {}
-    sed_unc_upper = {}
-    sed_unc_lower = {}
-    sed_flags = {}
-    sed_filternames = {}
-    sed_telescopenames = {}
+    try:
+        sed_data = json.load(open(sed_data_loc))
+        if target not in sed_data:
+            sed_data[target] = {
+                        "sed_flux" : {},
+                        "sed_freq" : {},
+                        "sed_unc_lower" : {},
+                        "sed_unc_upper" : {},
+                        "sed_telescopenames" : {},
+                        "sed_flags" : {}
+                }
+    except FileNotFoundError:
+        sed_data = {target : {
+                        "sed_flux" : {},
+                        "sed_freq" : {},
+                        "sed_unc_lower" : {},
+                        "sed_unc_upper" : {},
+                        "sed_telescopenames" : {},
+                        "sed_flags" : {}
+                }
+            }
+    ## Remove non-NED measurements (to be remeasured shortly)
+    bands_to_remove = []
+    for band in sed_data[target]["sed_flux"]:
+        if band in sed_data[target]["sed_flags"]:
+            if "n" not in sed_data[target]["sed_flags"][band]:
+                bands_to_remove.append(band)
+        else:
+            bands_to_remove.append(band)
+    for band in bands_to_remove:
+        sed_data[target]["sed_flux"].pop(band, None)
+        sed_data[target]["sed_freq"].pop(band, None)
+        sed_data[target]["sed_unc_lower"].pop(band, None)
+        sed_data[target]["sed_unc_upper"].pop(band, None)
+        sed_data[target]["sed_telescopenames"].pop(band, None)
+        sed_data[target]["sed_flags"].pop(band, None)
 
     # Get aperture file paths
     ap_file_paths = []
@@ -96,16 +127,6 @@ def full_photometry(target_name):
             logging.warning('For '+target_name+', \''+fltr+'.fits\' not found, but there exists a corresponding aperture file')
             continue
 
-        # Get flags if possible
-        sed_flags = {}
-        try:
-            all_sed_data_temp = json.load(open(sed_data_loc))
-            if target in all_sed_data_temp:
-                if 'sed_flags' in all_sed_data_temp[target]:
-                    sed_flags = all_sed_data_temp[target]['sed_flags']
-        except FileNotFoundError:
-            pass
-
         # Get background level
         ## Get region file
         bg_ap = Regions.read(bg_ap_path, format='ds9')[0]
@@ -143,10 +164,10 @@ def full_photometry(target_name):
         # Find uncertainties
         stat_unc_upper = imf.calc_unc_background(img, bg_ap)
         stat_unc_lower = imf.calc_unc_background(img, bg_ap)
-        if "SPIRE" in fltr:
-            # TODO: Make sure pix_aps[0] here is actually the desired main aperture
-            stat_unc_upper = imf.calc_unc_apcopy(img, pix_aps[0], background)
-            stat_unc_lower = imf.calc_unc_apcopy(img, pix_aps[0], background)
+        # if "SPIRE" in fltr:
+        #     # TODO: Make sure pix_aps[0] here is actually the desired main aperture
+        #     stat_unc_upper = imf.calc_unc_apcopy(img, pix_aps[0], background)
+        #     stat_unc_lower = imf.calc_unc_apcopy(img, pix_aps[0], background)
         abs_unc_upper = flux_final * flux_conversion.abs_unc[fltr]
         abs_unc_lower = flux_final * flux_conversion.abs_unc[fltr]
         total_unc_upper = (stat_unc_upper**2 + abs_unc_upper**2)**0.5
@@ -154,8 +175,9 @@ def full_photometry(target_name):
 
         # If upper limit to be found, just do that and continue
         # TODO: Set a flag for "no background" and set the background to 0
-        if fltr in sed_flags:
-            if 'u' in sed_flags[fltr]:
+        # TODO: This doesn't work with the extra integer appended
+        if fltr in sed_data[target]["sed_flags"]:
+            if 'u' in sed_data[target]["sed_flags"][fltr]:
                 correction = 1.0
                 if "PACS" in fltr:
                     correction = flux_conversion.beam_size[fltr](header)
@@ -185,51 +207,24 @@ def full_photometry(target_name):
 
         # Add data to SED structure
         ## If ALMA image, get frequency from image
+        fltr_itr = 0
         if 'ALMA' in fltr:
             tele_wl[fltr] = img_hdr['RESTFRQ']
-        ## Check if a *distinct* measurement already exists at this wavelength
-        while tele_wl[fltr] in sed_filternames and sed_filternames[tele_wl[fltr]] != fltr:
-            tele_wl[fltr] += 1  # If so, increment the wavelength by one to distinguish (but keep essentially the same)
-        sed_data[tele_wl[fltr]] = flux_final
-        sed_unc_upper[tele_wl[fltr]] = total_unc_upper
-        sed_unc_lower[tele_wl[fltr]] = total_unc_lower
-        sed_filternames[tele_wl[fltr]] = fltr
-        sed_telescopenames[tele_wl[fltr]] = tele_filters[fltr]
+        ## Check if a *distinct* measurement already exists for this filter
+        while (fltr+" "+str(fltr_itr)) in sed_data[target]["sed_flux"]:
+            fltr_itr += 1
+        sed_data[target]["sed_flux"][fltr+" "+str(fltr_itr)] = flux_final
+        sed_data[target]["sed_freq"][fltr+" "+str(fltr_itr)] = tele_wl[fltr]
+        sed_data[target]["sed_unc_upper"][fltr+" "+str(fltr_itr)] = total_unc_upper
+        sed_data[target]["sed_unc_lower"][fltr+" "+str(fltr_itr)] = total_unc_lower
+        sed_data[target]["sed_telescopenames"][fltr+" "+str(fltr_itr)] = tele_filters[fltr]
 
-    # Write data to SED file
-    sed_full = {target_name : {
-            "sed_data" : sed_data,
-            "sed_unc_upper" : sed_unc_upper,
-            "sed_unc_lower" : sed_unc_lower,
-            "sed_telescopenames" : sed_telescopenames,
-            "sed_filternames" : sed_filternames,
-            "sed_flags" : sed_flags
-    }}
-
-    # TODO: There's a problem with the logic here . . . just redo it probably
-    try:
-        all_sed_data = json.load(open(sed_data_loc))
+    # Write data to file
+    try:  # If the file already exists
+        # Open the file for writing
         sed_outfile = open(sed_data_loc, 'w')
-        if target in all_sed_data:
-            if "sed_flags" in all_sed_data[target]:
-                sed_full[target]["sed_flags"] |= all_sed_data[target]["sed_flags"]
-            nfreqs = []
-            for freq in all_sed_data[target]["sed_filternames"]:
-                if "n" in all_sed_data[target]["sed_flags"][all_sed_data[target]["sed_filternames"][freq]]:
-                    nfreqs.append(float(freq))
-                    sed_full[target]["sed_flags"][all_sed_data[target]["sed_filternames"][freq]] = "n"
-            for freq in nfreqs:
-                origfreq = freq
-                while freq in sed_full[target]["sed_data"]:
-                    freq += 1.0
-                sed_full[target]["sed_data"][str(freq)] = all_sed_data[target]["sed_data"][str(origfreq)]
-                sed_full[target]["sed_unc_upper"][str(freq)] = all_sed_data[target]["sed_unc_upper"][str(origfreq)]
-                sed_full[target]["sed_unc_lower"][str(freq)] = all_sed_data[target]["sed_unc_lower"][str(origfreq)]
-                sed_full[target]["sed_telescopenames"][str(freq)] = all_sed_data[target]["sed_telescopenames"][str(origfreq)]
-                sed_full[target]["sed_filternames"][str(freq)] = all_sed_data[target]["sed_filternames"][str(origfreq)]
-        all_sed_data |= sed_full
-        json.dump(all_sed_data, sed_outfile, indent=5)
-    except FileNotFoundError:
+        json.dump(sed_data, sed_outfile, indent=5)
+    except FileNotFoundError:  # Create a new file if needed
         print("\nSED data file not found ... creating a new one here")
         sed_outfile = open(sed_data_loc, 'w')
         json.dump(sed_full, sed_outfile, indent=5)
