@@ -113,6 +113,9 @@ def full_photometry(target_name):
         bg_cutout = (bg_ap.to_mask()).multiply(img)
         ## Integrate background flux
         background = integrate_flux(bg_cutout, 0.0) / (len(bg_cutout)-2)**2
+        ### If background flux nan, just set to 0.0
+        if background != background:
+            background = 0.0
 
         # Get apertures from file
         sky_aps = Regions.read(ap_path, format='ds9')
@@ -140,12 +143,17 @@ def full_photometry(target_name):
         # Find uncertainties
         stat_unc_upper = imf.calc_unc_background(img, bg_ap)
         stat_unc_lower = imf.calc_unc_background(img, bg_ap)
+        if "SPIRE" in fltr:
+            # TODO: Make sure pix_aps[0] here is actually the desired main aperture
+            stat_unc_upper = imf.calc_unc_apcopy(img, pix_aps[0], background)
+            stat_unc_lower = imf.calc_unc_apcopy(img, pix_aps[0], background)
         abs_unc_upper = flux_final * flux_conversion.abs_unc[fltr]
         abs_unc_lower = flux_final * flux_conversion.abs_unc[fltr]
         total_unc_upper = (stat_unc_upper**2 + abs_unc_upper**2)**0.5
         total_unc_lower = (stat_unc_lower**2 + abs_unc_lower**2)**0.5
 
         # If upper limit to be found, just do that and continue
+        # TODO: Set a flag for "no background" and set the background to 0
         if fltr in sed_flags:
             if 'u' in sed_flags[fltr]:
                 correction = 1.0
@@ -198,6 +206,7 @@ def full_photometry(target_name):
             "sed_flags" : sed_flags
     }}
 
+    # TODO: There's a problem with the logic here . . . just redo it probably
     try:
         all_sed_data = json.load(open(sed_data_loc))
         sed_outfile = open(sed_data_loc, 'w')
@@ -250,6 +259,9 @@ else:
     target_names = target_names.split(',')
 
 for target in target_names:
+    print(' ')
+    print('Doing photometry on : ' + target)
+    print(' ')
     if target in subdirs:
         full_photometry(target)
     else:

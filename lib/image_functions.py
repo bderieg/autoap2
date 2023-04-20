@@ -561,3 +561,24 @@ def calc_unc_background(img_data, bg_ap):
     bg_cutout = bg_cutout[1:-1,1:-1]  # Trim 0s
 
     return np.sqrt( np.mean( bg_cutout**2 ) ) * len(bg_cutout)**2
+
+def calc_unc_apcopy(img_data, main_ap, bg=0.0):
+    # Set constants
+    bg_peak_tol = 0.15
+    bg_avg_tol = 0.001
+
+    # Mask image
+    masked_img = (-1*main_ap.to_mask().to_image(np.shape(img_data)) + 1) * img_data
+    masked_img = np.where(masked_img == 0.0, np.nan, masked_img)
+
+    # Copy apertures and accept if they're good
+    fluxes = []
+    for i in range(20):
+        main_ap.center = PixCoord(np.random.randint(0, len(img_data)), np.random.randint(0, len(img_data)))
+        tempcutout = main_ap.to_mask().multiply(img_data)
+        while np.isnan(tempcutout).any() or (tempcutout.max()-bg)>bg_peak_tol*(img_data.max()-bg) or (np.average(tempcutout)-bg)>bg_avg_tol*(img_data.max()-bg):
+            main_ap.center = PixCoord(np.random.randint(0, len(img_data)), np.random.randint(0, len(img_data)))
+            tempcutout = main_ap.to_mask().multiply(img_data)
+        fluxes.append(integrate_flux(tempcutout, bg))
+
+    return np.std(fluxes)
