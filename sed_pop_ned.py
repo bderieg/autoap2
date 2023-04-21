@@ -30,18 +30,31 @@ for target in target_names:
         sed_outfile = open(sed_data_loc, 'w')
 
         # Remove previous NED measurements from local data
-        bands_to_remove = []
-        for band in sed_data[target]["sed_flux"]:
-            if band in sed_data[target]["sed_flags"]:
+        if "sed_flux" in sed_data[target]:
+            bands_to_remove = []
+            for band in sed_data[target]["sed_flux"]:
+                if band in sed_data[target]["sed_flags"]:
+                    if "n" in sed_data[target]["sed_flags"][band]:
+                        bands_to_remove.append(band)
+            for band in bands_to_remove:
+                sed_data[target]["sed_flux"].pop(band, None)
+                sed_data[target]["sed_freq"].pop(band, None)
+                sed_data[target]["sed_unc_lower"].pop(band, None)
+                sed_data[target]["sed_unc_upper"].pop(band, None)
+                sed_data[target]["sed_telescopenames"].pop(band, None)
+                sed_data[target]["sed_flags"].pop(band, None)
+        else:
+            bands_to_remove = []
+            for band in sed_data[target]["sed_flags"]:
                 if "n" in sed_data[target]["sed_flags"][band]:
                     bands_to_remove.append(band)
-        for band in bands_to_remove:
-            sed_data[target]["sed_flux"].pop(band, None)
-            sed_data[target]["sed_freq"].pop(band, None)
-            sed_data[target]["sed_unc_lower"].pop(band, None)
-            sed_data[target]["sed_unc_upper"].pop(band, None)
-            sed_data[target]["sed_telescopenames"].pop(band, None)
-            sed_data[target]["sed_flags"].pop(band, None)
+            for band in bands_to_remove:
+                sed_data[target]["sed_flags"].pop(band, None)
+            sed_data[target]["sed_flux"] = {}
+            sed_data[target]["sed_freq"] = {}
+            sed_data[target]["sed_unc_lower"] = {}
+            sed_data[target]["sed_unc_upper"] = {}
+            sed_data[target]["sed_telescopenames"] = {}
 
         # Merge the NED data with the local data
         for band in new_sed_data["sed_flux"]:

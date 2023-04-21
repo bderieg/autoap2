@@ -16,6 +16,7 @@ import subprocess as sp
 from multiprocessing import Process
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.modeling.models import Sersic1D
+import pandas as pd
 
 import logging
 
@@ -576,7 +577,9 @@ def calc_unc_apcopy(img_data, main_ap, bg=0.0):
     for i in range(20):
         main_ap.center = PixCoord(np.random.randint(0, len(img_data)), np.random.randint(0, len(img_data)))
         tempcutout = main_ap.to_mask().multiply(img_data)
-        while np.isnan(tempcutout).any() or (tempcutout.max()-bg)>bg_peak_tol*(img_data.max()-bg) or (np.average(tempcutout)-bg)>bg_avg_tol*(img_data.max()-bg):
+        while not isinstance(tempcutout, np.ndarray):
+            tempcutout = main_ap.to_mask().multiply(img_data)
+        while np.isnan(tempcutout).any() or (np.nanmax(tempcutout)-bg)>bg_peak_tol*(np.nanmax(img_data)-bg) or (np.average(tempcutout)-bg)>bg_avg_tol*(np.nanmax(img_data)-bg):
             main_ap.center = PixCoord(np.random.randint(0, len(img_data)), np.random.randint(0, len(img_data)))
             tempcutout = main_ap.to_mask().multiply(img_data)
         fluxes.append(integrate_flux(tempcutout, bg))

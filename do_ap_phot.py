@@ -152,10 +152,12 @@ def full_photometry(target_name):
         # Measure flux in all apertures
         eff_radius = 1.0
         flux_final = 0
-        for cutout, color, ap in zip(pix_ap_cutouts, ap_colors, sky_aps):
+        main_ind = 0
+        for cutout, color, ap, ind in zip(pix_ap_cutouts, ap_colors, sky_aps, range(0, len(sky_aps))):
             if color=='green':
                 eff_radius = (ap.width.value+ap.height.value)/2
                 flux_final += integrate_flux(cutout, background)
+                main_ind = ind
             elif color=='red':
                 flux_final -= integrate_flux(cutout, background)
             else:
@@ -164,26 +166,24 @@ def full_photometry(target_name):
         # Find uncertainties
         stat_unc_upper = imf.calc_unc_background(img, bg_ap)
         stat_unc_lower = imf.calc_unc_background(img, bg_ap)
-        # if "SPIRE" in fltr:
-        #     # TODO: Make sure pix_aps[0] here is actually the desired main aperture
-        #     stat_unc_upper = imf.calc_unc_apcopy(img, pix_aps[0], background)
-        #     stat_unc_lower = imf.calc_unc_apcopy(img, pix_aps[0], background)
+        if "SPIRE" in fltr:
+            stat_unc_upper = imf.calc_unc_apcopy(img, pix_aps[main_ind], background)
+            stat_unc_lower = imf.calc_unc_apcopy(img, pix_aps[main_ind], background)
         abs_unc_upper = flux_final * flux_conversion.abs_unc[fltr]
         abs_unc_lower = flux_final * flux_conversion.abs_unc[fltr]
         total_unc_upper = (stat_unc_upper**2 + abs_unc_upper**2)**0.5
         total_unc_lower = (stat_unc_lower**2 + abs_unc_lower**2)**0.5
 
         # If upper limit to be found, just do that and continue
-        # TODO: Set a flag for "no background" and set the background to 0
-        # TODO: This doesn't work with the extra integer appended
-        if fltr in sed_data[target]["sed_flags"]:
-            if 'u' in sed_data[target]["sed_flags"][fltr]:
-                correction = 1.0
-                if "PACS" in fltr:
-                    correction = flux_conversion.beam_size[fltr](header)
-                upper_limit = correction * 4.5*np.sqrt(np.mean(pix_ap_cutouts[0]**2))
-                total_unc_upper = -1
-                total_unc_lower = 0
+        for key in sed_data[target]["sed_flags"]:
+            if fltr in key:
+                if 'u' in sed_data[target]["sed_flags"][key]:
+                    correction = 1.0
+                    if "PACS" in fltr:
+                        correction = flux_conversion.beam_size[fltr](header)
+                    upper_limit = correction * 4.5*np.sqrt(np.mean(pix_ap_cutouts[main_ind]**2))
+                    total_unc_upper = -1
+                    total_unc_lower = 0
 
         # Convert to units of Jy
         flux_final = flux_final *\

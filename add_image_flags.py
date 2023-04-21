@@ -71,15 +71,18 @@ if target in subdirs:
                 all_sed_data[target] = {}
             if "sed_flags" not in all_sed_data[target]:
                 all_sed_data[target]["sed_flags"] = {}
-            if fltr in all_sed_data[target]["sed_flags"]:
-                flagset = set(all_sed_data[target]["sed_flags"][fltr])
-                flagset.add(flag)
-                outstring = ''
-                for i in flagset:
-                    outstring += i
-                all_sed_data[target]["sed_flags"][fltr] = outstring
-            else:
-                all_sed_data[target]["sed_flags"][fltr] = flag
+            hasadded = False
+            for key in all_sed_data[target]["sed_flags"]:
+                if fltr in key:
+                    hasadded = True
+                    flagset = set(all_sed_data[target]["sed_flags"][key])
+                    flagset.add(flag)
+                    outstring = ''
+                    for i in flagset:
+                        outstring += i
+                    all_sed_data[target]["sed_flags"][key] = outstring
+            if not hasadded:
+                all_sed_data[target]["sed_flags"][fltr+" "+str(0)] = flag
             json.dump(all_sed_data, sed_outfile, indent=5)
         except FileNotFoundError:
             print("\nSED data file not found ... creating a new one here")

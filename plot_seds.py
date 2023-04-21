@@ -67,25 +67,24 @@ sed_colors = json.load(open('./param_files/telescope_sed_colors.json'))
 for target in target_names:
     if target in subdirs:
         # Import SED data
-        sed_data = seds[target]['sed_data']
+        sed_freq = seds[target]['sed_freq']
+        sed_flux = seds[target]['sed_flux']
         sed_unc_upper = seds[target]['sed_unc_upper']
         sed_unc_lower = seds[target]['sed_unc_lower']
         sed_telenames = seds[target]['sed_telescopenames']
-        sed_filternames = seds[target]['sed_filternames']
-        sed_data_arr = np.transpose(np.asarray([[float(key), sed_data[key]] for key in sed_data]))
-        sed_unc_lower_arr = np.transpose(np.asarray([sed_unc_lower[key] for key in sed_unc_lower]))
-        sed_unc_upper_arr = np.transpose(np.asarray([sed_unc_upper[key] for key in sed_unc_upper]))
-        sed_telenames_arr = np.transpose(np.asarray([sed_telenames[key] for key in sed_telenames]))
-        sed_filternames_arr = np.transpose(np.asarray([sed_filternames[key] for key in sed_filternames]))
+        sed_data_arr = np.transpose(np.asarray([[sed_freq[key], sed_flux[key]] for key in sed_flux]))
+        sed_unc_lower_arr = np.transpose(np.asarray([sed_unc_lower[key] for key in sed_flux]))
+        sed_unc_upper_arr = np.transpose(np.asarray([sed_unc_upper[key] for key in sed_flux]))
+        sed_telenames_arr = np.transpose(np.asarray([sed_telenames[key] for key in sed_flux]))
         # Make unique legend list
         unique_legend_points = ["_"] * len(sed_telenames_arr)
         for ind in np.unique(np.asarray(sed_telenames_arr), return_index=True)[1]:
             unique_legend_points[ind] = sed_telenames_arr[ind] 
         # Plot
         fig, ax = plt.subplots()
-        for xval,yval,filtername,telename,legendname,unc_upper,unc_lower\
+        for xval,yval,telename,legendname,unc_upper,unc_lower\
                 in zip(sed_data_arr[0], sed_data_arr[1],\
-                sed_filternames_arr, sed_telenames_arr,\
+                sed_telenames_arr,\
                 unique_legend_points,\
                 sed_unc_upper_arr, sed_unc_lower_arr):
             ax.scatter(xval, yval, marker=sed_ps[telename], color=sed_colors[telename], label=legendname)
