@@ -3,20 +3,15 @@ import get_ned_data as gnd
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
-from astropy.modeling import functional_models as fm
 from astropy import units as u
-from regions import Regions, PixCoord, CirclePixelRegion, EllipseSkyRegion, EllipsePixelRegion, RectanglePixelRegion
+from regions import Regions, PixCoord, EllipseSkyRegion, EllipsePixelRegion, RectanglePixelRegion
 import numpy as np
 from skimage.morphology import erosion, disk
 from skimage import feature, measure
 import matplotlib.colors as colors
-import threading
 from matplotlib.patches import Ellipse
 import subprocess as sp
 from multiprocessing import Process
-from astropy.modeling.fitting import LevMarLSQFitter
-from astropy.modeling.models import Sersic1D
-import pandas as pd
 
 import logging
 
@@ -566,7 +561,8 @@ def calc_unc_background(img_data, bg_ap):
 def calc_unc_apcopy(img_data, main_ap, bg=0.0):
     # Set constants
     bg_peak_tol = 0.15
-    bg_avg_tol = 0.001
+    bg_avg_tol = 0.005
+    iters = 0
 
     # Mask image
     masked_img = (-1*main_ap.to_mask().to_image(np.shape(img_data)) + 1) * img_data
@@ -575,13 +571,16 @@ def calc_unc_apcopy(img_data, main_ap, bg=0.0):
     # Copy apertures and accept if they're good
     fluxes = []
     for i in range(20):
-        main_ap.center = PixCoord(np.random.randint(0, len(img_data)), np.random.randint(0, len(img_data)))
-        tempcutout = main_ap.to_mask().multiply(img_data)
-        while not isinstance(tempcutout, np.ndarray):
-            tempcutout = main_ap.to_mask().multiply(img_data)
-        while np.isnan(tempcutout).any() or (np.nanmax(tempcutout)-bg)>bg_peak_tol*(np.nanmax(img_data)-bg) or (np.average(tempcutout)-bg)>bg_avg_tol*(np.nanmax(img_data)-bg):
-            main_ap.center = PixCoord(np.random.randint(0, len(img_data)), np.random.randint(0, len(img_data)))
-            tempcutout = main_ap.to_mask().multiply(img_data)
+        tempcutout = [[0.0]]
+        while np.isnan(tempcutout).any()\
+                or (np.nanmax(tempcutout)-bg)>bg_peak_tol*(np.nanmax(img_data)-bg)\
+                or (np.average(tempcutout)-bg)>bg_avg_tol*(np.nanmax(img_data)-bg):
+            while tempcutout is None:
+                main_ap.center = PixCoord(np.random.randint(0, len(img_data)), np.random.randint(0, len(img_data)))
+                tempcutout = main_ap.to_mask().multiply(img_data)
+            iters += 1
+            if iters > 20:
+                bg_avg_tol += 0.001
         fluxes.append(integrate_flux(tempcutout, bg))
 
     return np.std(fluxes)

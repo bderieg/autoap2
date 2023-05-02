@@ -14,6 +14,7 @@ import json
 import flux_conversion
 import image_functions as imf
 
+from termcolor import colored
 import logging
 
 #################
@@ -87,7 +88,6 @@ def full_photometry(target_name):
         sed_data[target]["sed_unc_lower"].pop(band, None)
         sed_data[target]["sed_unc_upper"].pop(band, None)
         sed_data[target]["sed_telescopenames"].pop(band, None)
-        sed_data[target]["sed_flags"].pop(band, None)
 
     # Get aperture file paths
     ap_file_paths = []
@@ -104,6 +104,7 @@ def full_photometry(target_name):
 
     # Iterate through fits files
     for fltr, ap_path, bg_ap_path in zip(filter_names, ap_file_paths, bg_ap_file_paths):
+        print(colored(' . . . working on band \'' + fltr + '\' . . . ','green'))
         # Get path for fits file corresponding to aperture
         fits_path = workdir+subdir+'fits/'+fltr+'.fits'
 
@@ -255,7 +256,7 @@ else:
 
 for target in target_names:
     print(' ')
-    print('Doing photometry on : ' + target)
+    print(colored('Doing photometry on : ' + target,'green'))
     print(' ')
     if target in subdirs:
         full_photometry(target)
