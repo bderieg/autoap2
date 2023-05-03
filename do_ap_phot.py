@@ -182,7 +182,11 @@ def full_photometry(target_name):
                     correction = 1.0
                     if "PACS" in fltr:
                         correction = flux_conversion.beam_size[fltr](header)
-                    upper_limit = correction * 4.5*np.sqrt(np.mean(pix_ap_cutouts[main_ind]**2))
+                    flux_final = correction * 4.5*np.sqrt(np.mean(pix_ap_cutouts[main_ind]**2))
+                    total_unc_upper = -1
+                    total_unc_lower = 0
+                elif 'a' in sed_data[target]["sed_flags"][key]:
+                    flux_final = flux_conversion.beam_size[fltr](img_hdr) * 4.5*np.sqrt(np.mean(pix_ap_cutouts[main_ind]**2))
                     total_unc_upper = -1
                     total_unc_lower = 0
 

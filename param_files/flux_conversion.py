@@ -1,10 +1,11 @@
 import numpy as np
 
 abs_unc = {
+    'ALMAExtended' : 0.1,
     'ALMAExtendedLowerNat' : 0.1,
     'ALMAExtendedUpperNat' : 0.1,
     'ALMAExtendedLowerBri' : 0.1,
-    'ALMAExtendedLowerBri' : 0.1,
+    'ALMAExtendedUpperBri' : 0.1,
     'ALMANuclearNat' : 0.1,
     'ALMANuclearBri' : 0.1,
     'IRAC1' : 0.1,
@@ -47,10 +48,11 @@ abs_unc = {
 }
 
 color_correction = {
+    'ALMAExtended' : lambda header : 1,
     'ALMAExtendedLowerNat' : lambda header : 1,
     'ALMAExtendedUpperNat' : lambda header : 1,
     'ALMAExtendedLowerBri' : lambda header : 1,
-    'ALMAExtendedLowerBri' : lambda header : 1,
+    'ALMAExtendedUpperBri' : lambda header : 1,
     'ALMANuclearNat' : lambda header : 1,
     'ALMANuclearBri' : lambda header : 1,
     'IRAC1' : lambda header : 1.0111,
@@ -93,10 +95,11 @@ color_correction = {
 }
 
 brightness_conversion = {
+    'ALMAExtended' : lambda header : 1,
     'ALMAExtendedLowerNat' : lambda header : 1,
     'ALMAExtendedUpperNat' : lambda header : 1,
     'ALMAExtendedLowerBri' : lambda header : 1,
-    'ALMAExtendedLowerBri' : lambda header : 1,
+    'ALMAExtendedUpperBri' : lambda header : 1,
     'ALMANuclearNat' : lambda header : 1,
     'ALMANuclearBri' : lambda header : 1,
     'IRAC1' : lambda header : 1e6 / 4.25452e10,  # MJy->Jy * sr->arcsec^2
@@ -143,10 +146,11 @@ brightness_conversion = {
 }
 
 beam_size = {
+    'ALMAExtended' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
     'ALMAExtendedLowerNat' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
     'ALMAExtendedUpperNat' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
     'ALMAExtendedLowerBri' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
-    'ALMAExtendedLowerBri' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
+    'ALMAExtendedUpperBri' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
     'ALMANuclearNat' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
     'ALMANuclearBri' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
     'IRAC1' : lambda header : 1,
@@ -189,10 +193,11 @@ beam_size = {
 }
 
 pix_size = {
+    'ALMAExtended' : lambda header : header['CDELT2']**2,
     'ALMAExtendedLowerNat' : lambda header : header['CDELT2']**2,
     'ALMAExtendedUpperNat' : lambda header : header['CDELT2']**2,
     'ALMAExtendedLowerBri' : lambda header : header['CDELT2']**2,
-    'ALMAExtendedLowerBri' : lambda header : header['CDELT2']**2,
+    'ALMAExtendedUpperBri' : lambda header : header['CDELT2']**2,
     'ALMANuclearNat' : lambda header : header['CDELT2']**2,
     'ALMANuclearBri' : lambda header : header['CDELT2']**2,
     'IRAC1' : lambda header : header['PXSCAL2']**2,  # arcsec^2
@@ -235,10 +240,11 @@ pix_size = {
 }
 
 other_correction = {
+    'ALMAExtended' : lambda header,eff_radius : 1,
     'ALMAExtendedLowerNat' : lambda header,eff_radius : 1,
     'ALMAExtendedUpperNat' : lambda header,eff_radius : 1,
     'ALMAExtendedLowerBri' : lambda header,eff_radius : 1,
-    'ALMAExtendedLowerBri' : lambda header,eff_radius : 1,
+    'ALMAExtendedUpperBri' : lambda header,eff_radius : 1,
     'ALMANuclearNat' : lambda header,eff_radius : 1,
     'ALMANuclearBri' : lambda header,eff_radius : 1,
     'IRAC1' : lambda header,eff_radius : 0.82 * np.exp(-(eff_radius*3600)**0.370) + 0.910,  # Extended aperture correction
