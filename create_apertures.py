@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.wcs import WCS
 from regions import Regions
+from termcolor import colored
 import json
 
 import flux_conversion
@@ -60,7 +61,7 @@ for target in target_names:
             # Describe to terminal
             print(' ')
             print(' ')
-            print('########## ' + target + ' ' + fltr + ' ##########')
+            print(colored('########## ' + target + ' ' + fltr + ' ##########','green'))
             print(' ')
             # Open image
             img_path = workdir+target+"/fits/"+fltr+".fits"

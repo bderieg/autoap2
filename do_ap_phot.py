@@ -95,7 +95,7 @@ def full_photometry(target_name):
     filter_names = []
     for r, d, f in os.walk(workdir+subdir+'apertures/'):
         for file in f:
-            if "background" not in file:
+            if "background" not in file and "Lower" not in file:
                 full_path = workdir+subdir+'apertures/'+file
                 bg_path = workdir+subdir+'apertures/background'+file
                 ap_file_paths.append(full_path)
@@ -189,6 +189,53 @@ def full_photometry(target_name):
                     flux_final = flux_conversion.beam_size[fltr](img_hdr) * 4.5*np.sqrt(np.mean(pix_ap_cutouts[main_ind]**2))
                     total_unc_upper = -1
                     total_unc_lower = 0
+
+        # If 'r' flag
+        for key in sed_data[target]["sed_flags"]:
+            if fltr in key:
+                if 'r' in sed_data[target]["sed_flags"][key]:
+                    try:
+
+                        # Get lower apertures from file
+                        lower_sky_aps = Regions.read(workdir+subdir+'apertures/'+fltr+'Lower.reg', format='ds9')
+                        ## Convert to pixel aperture
+                        lower_pix_aps = [i.to_pixel(wcs) for i in lower_sky_aps]
+                        ## Get aperture colors (green=main; red=subtraction)
+                        lower_ap_colors = [i.visual['edgecolor'] for i in lower_pix_aps]
+
+                        # Get cutouts of all apertures
+                        lower_pix_ap_masks = [i.to_mask() for i in lower_pix_aps]
+                        lower_pix_ap_cutouts = [i.multiply(img) for i in lower_pix_ap_masks]
+
+                        # Measure flux in all apertures
+                        lower_eff_radius = 1.0
+                        lower_flux_final = 0
+                        lower_main_ind = 0
+                        for cutout,\
+                                color,\
+                                ap,\
+                                ind in zip(lower_pix_ap_cutouts, lower_ap_colors, lower_sky_aps, range(0, len(lower_sky_aps))):
+                            if color=='green':
+                                lower_eff_radius = (ap.width.value+ap.height.value)/2
+                                lower_flux_final += integrate_flux(cutout, background)
+                                lower_main_ind = ind
+                            elif color=='red':
+                                lower_flux_final -= integrate_flux(cutout, background)
+                            else:
+                                logging.warning('Ambiguity warning ... an aperture was an ambiguous color, so it was not used')
+
+                        # Find lower uncertainties
+                        lower_stat_unc_lower = imf.calc_unc_background(img, bg_ap)
+                        if "SPIRE" in fltr:
+                            lower_stat_unc_lower = imf.calc_unc_apcopy(img, lower_pix_aps[lower_main_ind], background)
+                        lower_abs_unc_lower = flux_final * flux_conversion.abs_unc[fltr]
+                        lower_total_unc_lower = (lower_stat_unc_lower**2 + lower_abs_unc_lower**2)**0.5
+
+                        # Adjust overall limits
+                        total_unc_lower = lower_total_unc_lower + (flux_final - lower_flux_final)
+
+                    except FileNotFoundError:
+                        logging.warning('\'r\' keyword was specified, but no \'lower\' fits file is present; keyword has no effect')
 
         # Convert to units of Jy
         flux_final = flux_final *\
