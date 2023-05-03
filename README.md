@@ -12,6 +12,9 @@ When run, this will prompt the user to select a data folder (with structure acco
 ## do_ap_phot.py
 Prompts the user to select a data folder which presumably contains all the requisite DS9 region and fits files. The user will be prompted to select which targets to do photometry on, and resulting photometry data will be dumped to a JSON file in the user-specified folder. Note that this will **always overwrite all previously-gathered data** for this target (except for NED data)!
 
+## manual_entry.py
+After photometry has been done, the user may wish to manually change measurements by running this script, which will prompt for a target, and then to change the flux value and upper/lower uncertainties.
+
 ## add_image_flags.py
 Prompts the user to select a data folder where a JSON file as will be searched for (as created by the 'do_ap_phot.py' routine). For measurements which already exist in this data file, flags can be added as specified in the routine. Among other things, this is most useful for specifying how photometry is to be done on specific bands, such as taking an upper limit, etc.
 
