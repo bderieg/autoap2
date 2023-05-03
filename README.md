@@ -1,5 +1,3 @@
-(in progress)
-
 # autoap2
 A set of Python scripts to: draw apertures quickly (semi-automatically with user verification), do photometry on these, pull select data from NED, and perform other SED analyses.
 
@@ -17,6 +15,24 @@ After photometry has been done, the user may wish to manually change measurement
 
 ## add_image_flags.py
 Prompts the user to select a data folder where a JSON file as will be searched for (as created by the 'do_ap_phot.py' routine). For measurements which already exist in this data file, flags can be added as specified in the routine. Among other things, this is most useful for specifying how photometry is to be done on specific bands, such as taking an upper limit, etc.
+
+### Flag Options
+The following options are available for flags on each photometric band:
+- u
+
+    Specifies that when photometry is run on this band, it should be calculated as an upper limit (for use when there is no apparent emission). This takes the RMS average inside the aperture and multiplies it by 4.5.
+    
+- a
+
+    This is the same as 'u' but for use with ALMA bands.
+    
+- r
+
+    Specifies that there is suspected to be some significant unresolved contamination in the image (as determined from other images). If this flag is used, there should also be an extra aperture file with the same name as the main one but with "Lower" appended (e.g., 'SPIRE250Lower.fits'). This aperture should be a lower-end estimate for where only the flux from the target itself is contained (i.e., excluding contamination), while the main aperture file should include everything. The photometry is then measured with the main aperture, but the lower limit is adjusted lower for this lower bound.
+    
+- n
+
+    **Not for explicit use by the user**, but specifies internally that a data point was gathered from NED.
 
 ## sed_pop_ned.py
 When run, this will gather photometric data from NED to populate the SED for the user-specified target. Points are selected based on some hard-coded logic . . . if different logic is needed, the code itself needs to be altered. Running this on a target will always overwrite previously-gathered NED data (but data that was gathered otherwise).
