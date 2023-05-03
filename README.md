@@ -10,17 +10,73 @@ In the main folder, there is a collection of Python scripts meant to be run indi
 When run, this will prompt the user to select a data folder (with structure according to 'structure' section) and go through the process of drawing regions around the detected flux. A main aperture will be drawn automatically (though the user can edit it), then the user will be prompted to select source-free region to use as the background, as well as contaminated regions near the target. Assuming this was done with the correct folder structure, these will be automatically used by the 'do_ap_phot.py' routine.
 
 ## do_ap_phot.py
+Prompts the user to select a data folder which presumably contains all the requisite DS9 region and fits files. The user will be prompted to select which targets to do photometry on, and resulting photometry data will be dumped to a JSON file in the user-specified folder. Note that this will **always overwrite all previously-gathered data** for this target (except for NED data)!
 
 ## add_image_flags.py
+Prompts the user to select a data folder where a JSON file as will be searched for (as created by the 'do_ap_phot.py' routine). For measurements which already exist in this data file, flags can be added as specified in the routine. Among other things, this is most useful for specifying how photometry is to be done on specific bands, such as taking an upper limit, etc.
 
 ## sed_pop_ned.py
+When run, this will gather photometric data from NED to populate the SED for the user-specified target. Points are selected based on some hard-coded logic . . . if different logic is needed, the code itself needs to be altered. Running this on a target will always overwrite previously-gathered NED data (but data that was gathered otherwise).
 
 ## stitch_images.py
+This will prompt the user for two .fits files, as well as an output file. It attempts to stitch the two images (preserving flux) by matching the WCS coordinates. The output .fits file header will contain the correct scaling/WCS, and everything else is copied from the first image. See the [reproject](https://reproject.readthedocs.io/) documentation for more details about how the stitching works.
 
 ## plot_seds.py
+Will prompt the user for a data folder and a target from such to plot the SED. Data taken from the JSON file found in the data folder (assuming it has been created with either 'sed_pop_ned.py' or 'do_ap_phot.py'). Plotting options are found and can be edited in the 'param_files/' folder.
 
 # Data structure
-blah
+To be recognizable, the 'data' should be organized like the following example (this is the folder which should be selected when prompted in the above routines). This structure should be set up manually, and the apertures will be automatically created and placed in the correct location.
+- data/
+  - NGC1380/
+    - fits/
+      - W1.fits
+      - SPIRE250.fits
+      - etc.
+    - apertures/
+  - NGC3557/
+    - fits/
+      - W3.fits
+      - PACS100.fits
+      - etc.
+    - apertures/
+  - etc.
+
+The following band names are currently supported (with predefined frequencies in the 'param_files/' folder, except for ALMA, which reads the frequency from the .fits header):
+- ALMAExtended
+- ALMAExtendedLowerNat
+- ALMAExtendedUpperNat
+- ALMAExtendedLowerBri
+- ALMAExtendedUpperBri
+- ALMANuclearNat
+- ALMANuclearBri
+- IRAC1
+- IRAC2
+- W1
+- W2
+- W3
+- W4
+- PACS70
+- PACS100
+- PACS160
+- SPIRE250
+- SPIRE350
+- SPIRE500
+- SDSS_u
+- SDSS_g
+- SDSS_r
+- SDSS_i
+- SDSS_z
+- GALEX_NUV
+- GALEX_FUV
+- DES_u
+- DES_Y
+- DES_g
+- DES_r
+- DES_i
+- DES_z
+- 2MASS_J
+- 2MASS_H
+- 2MASS_K
 
 # Dependencies
 The following Python packages are required for one or more of the scripts:
