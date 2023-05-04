@@ -1,4 +1,7 @@
 {
+"VLA" : "VLA",
+"ATCA" : "ATCA",
+"Parkes" : "Parkes",
 "ALMAExtended" : "ALMA Extended",
 "ALMAExtendedLowerNat" : "ALMA Extended",
 "ALMAExtendedUpperNat" : "ALMA Extended",

@@ -167,7 +167,8 @@ def full_photometry(target_name):
         # Find uncertainties
         stat_unc_upper = imf.calc_unc_background(img, bg_ap)
         stat_unc_lower = imf.calc_unc_background(img, bg_ap)
-        if "SPIRE" in fltr:
+        if "SPIRE" in fltr\
+                or "PACS" in fltr:
             stat_unc_upper = imf.calc_unc_apcopy(img, pix_aps[main_ind], background)
             stat_unc_lower = imf.calc_unc_apcopy(img, pix_aps[main_ind], background)
         abs_unc_upper = flux_final * flux_conversion.abs_unc[fltr]

@@ -1,5 +1,7 @@
 from astroquery.ipac.ned import Ned as ned
 from statistics import mean
+from termcolor import colored
+import numpy as np
 
 def get_ellipse_parameters(target_name):
     diameters_table = ned.get_table(target_name, table="diameters")
@@ -68,5 +70,31 @@ def get_sed_data(target_name):
                 sed["sed_telescopenames"][row["Observed Passband"]+" "+str(band_itr)] = "Spitzer"
                 sed["sed_flags"][row["Observed Passband"]+" "+str(band_itr)] = "n"
                 band_itr += 1
+            # Parkes
+            if row["Refcode"] == "1990PKS90.C...0000W":
+                print(colored("yee","yellow"))
+                sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
+                sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
+                sed["sed_unc_upper"][row["Observed Passband"]+" "+str(band_itr)] = row["Upper limit of uncertainty"]
+                sed["sed_unc_lower"][row["Observed Passband"]+" "+str(band_itr)] = row["Lower limit of uncertainty"]
+                sed["sed_telescopenames"][row["Observed Passband"]+" "+str(band_itr)] = "Parkes"
+                sed["sed_flags"][row["Observed Passband"]+" "+str(band_itr)] = "n"
+                band_itr += 1
+            # ATCA
+            if row["Refcode"] == "2010MNRAS.402.2403M":
+                print(colored("yee","yellow"))
+                sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
+                sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
+                sed["sed_unc_upper"][row["Observed Passband"]+" "+str(band_itr)] = row["Upper limit of uncertainty"]
+                sed["sed_unc_lower"][row["Observed Passband"]+" "+str(band_itr)] = row["Lower limit of uncertainty"]
+                sed["sed_telescopenames"][row["Observed Passband"]+" "+str(band_itr)] = "ATCA"
+                sed["sed_flags"][row["Observed Passband"]+" "+str(band_itr)] = "n"
+                band_itr += 1
+
+            # Deal with potentially empty boxes
+            for key in sed:
+                for fltr in sed[key]:
+                    if sed[key][fltr] is np.ma.masked:
+                        sed[key][fltr] = 0.0
 
     return sed

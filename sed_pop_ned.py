@@ -4,6 +4,7 @@ sys.path.insert(0, './lib')
 sys.path.insert(0, './param_files')
 
 import json
+from termcolor import colored
 
 import get_ned_data as gnd
 
@@ -16,18 +17,40 @@ sed_data_loc = workdir + "sed_data.json"
 
 # Prompt to specify targets for photometry
 print(' ')
-target_names = input("Enter (as a comma-separated list) the desired target(s) : ")
-target_names = target_names.split(',')
+allq = input("Gather data from NED for all targets in this folder? (y/N): ")
+subdirs = [f.name for f in os.scandir(workdir) if f.is_dir()]
+if allq == 'y' or allq == 'Y':
+    target_names = subdirs
+else:
+    print(' ')
+    target_names = input("Enter (as a comma-separated list) the desired target(s) : ")
+    target_names = target_names.split(',')
 
 # Get SED data or create new file
 for target in target_names:
     try:
+        
+        print(' ')
+        print(colored('Attempting to gather data for ' + target,'green'))
+        print(' ')
+
         # Get SED data from NED
         new_sed_data = gnd.get_sed_data(target)
 
         # Get previously-existing local SED data
         sed_data = json.load(open(sed_data_loc))
         sed_outfile = open(sed_data_loc, 'w')
+
+        # Add target if it's not there
+        if target not in sed_data:
+            sed_data[target] = {
+                        "sed_flux" : {},
+                        "sed_freq" : {},
+                        "sed_unc_upper" : {},
+                        "sed_unc_lower" : {},
+                        "sed_telescopenames" : {},
+                        "sed_flags" : {}
+                    }
 
         # Remove previous NED measurements from local data
         if "sed_flux" in sed_data[target]:
@@ -70,8 +93,14 @@ for target in target_names:
 
         # Write
         json.dump(sed_data, sed_outfile, indent=5)
-        
+        sed_outfile.close()
+
     except FileNotFoundError:
         print("\nSED data file not found ... creating a new one here")
         sed_outfile = open(sed_data_loc, 'w')
         json.dump({target:gnd.get_sed_data(target)}, sed_outfile, indent=5)
+        sed_outfile.close()
+
+    # except:
+    #     print(colored("Something bad happened (╯°□°）╯︵ ┻━┻","red"))
+    #     exit()

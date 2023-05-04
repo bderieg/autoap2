@@ -1,4 +1,7 @@
 {
+"VLA" : "p",
+"ATCA" : "<",
+"Parkes" : ">",
 "ALMA Extended" : "^",
 "ALMA Nuclear" : "v",
 "SDSS" : "+",
