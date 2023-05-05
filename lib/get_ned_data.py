@@ -71,8 +71,9 @@ def get_sed_data(target_name):
                 sed["sed_flags"][row["Observed Passband"]+" "+str(band_itr)] = "n"
                 band_itr += 1
             # Parkes
-            if row["Refcode"] == "1990PKS90.C...0000W":
-                print(colored("yee","yellow"))
+            if row["Refcode"] == "1990PKS90.C...0000W"\
+                    or row["Refcode"] == "1977MNRAS.179..235D":
+                print(colored('yee','yellow'))
                 sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
                 sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
                 sed["sed_unc_upper"][row["Observed Passband"]+" "+str(band_itr)] = row["Upper limit of uncertainty"]
@@ -82,12 +83,53 @@ def get_sed_data(target_name):
                 band_itr += 1
             # ATCA
             if row["Refcode"] == "2010MNRAS.402.2403M":
-                print(colored("yee","yellow"))
+                    or row["Refcode"] == "2005ApJ...623..815G":
+                print(colored('yee','yellow'))
                 sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
                 sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
                 sed["sed_unc_upper"][row["Observed Passband"]+" "+str(band_itr)] = row["Upper limit of uncertainty"]
                 sed["sed_unc_lower"][row["Observed Passband"]+" "+str(band_itr)] = row["Lower limit of uncertainty"]
                 sed["sed_telescopenames"][row["Observed Passband"]+" "+str(band_itr)] = "ATCA"
+                sed["sed_flags"][row["Observed Passband"]+" "+str(band_itr)] = "n"
+                band_itr += 1
+            # VLA
+            if (row["Refcode"] == "2002AJ....124..675C"\
+                    or row["Refcode"] == "2006A&A...449..559B"\
+                    or row["Refcode"] == "2004AJ....128.2013C"\
+                    or row["Refcode"] == "2005A&A...435..521N"\
+                    or row["Refcode"] == "2009ApJ...703..802M"\
+                    or row["Refcode"] == "2017ApJ...847..136B"\
+                    or row["Refcode"] == "2006A&A...455..161L"\
+                    or row["Refcode"] == "1998AJ....115.1693C"\
+                    or row["Refcode"] == "2011ApJ...731L..41B")\
+                    and row["Frequency"] < 1e12:
+                print(colored('yee','yellow'))
+                sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
+                sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
+                sed["sed_unc_upper"][row["Observed Passband"]+" "+str(band_itr)] = row["Upper limit of uncertainty"]
+                sed["sed_unc_lower"][row["Observed Passband"]+" "+str(band_itr)] = row["Lower limit of uncertainty"]
+                sed["sed_telescopenames"][row["Observed Passband"]+" "+str(band_itr)] = "VLA"
+                sed["sed_flags"][row["Observed Passband"]+" "+str(band_itr)] = "n"
+                band_itr += 1
+            # Effelsberg
+            if row["Refcode"] == "2004A&A...418....1V":
+                print(colored('yee','yellow'))
+                sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
+                sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
+                sed["sed_unc_upper"][row["Observed Passband"]+" "+str(band_itr)] = row["Upper limit of uncertainty"]
+                sed["sed_unc_lower"][row["Observed Passband"]+" "+str(band_itr)] = row["Lower limit of uncertainty"]
+                sed["sed_telescopenames"][row["Observed Passband"]+" "+str(band_itr)] = "Effelsberg"
+                sed["sed_flags"][row["Observed Passband"]+" "+str(band_itr)] = "n"
+                band_itr += 1
+            # MOST
+            if row["Refcode"] == "2003MNRAS.342.1117M"\
+                    or row["Refcode"] == "2008SUMSS.2.1.....:":
+                print(colored('yee','yellow'))
+                sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
+                sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
+                sed["sed_unc_upper"][row["Observed Passband"]+" "+str(band_itr)] = row["Upper limit of uncertainty"]
+                sed["sed_unc_lower"][row["Observed Passband"]+" "+str(band_itr)] = row["Lower limit of uncertainty"]
+                sed["sed_telescopenames"][row["Observed Passband"]+" "+str(band_itr)] = "MOST"
                 sed["sed_flags"][row["Observed Passband"]+" "+str(band_itr)] = "n"
                 band_itr += 1
 

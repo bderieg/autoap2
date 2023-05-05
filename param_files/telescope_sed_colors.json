@@ -1,7 +1,10 @@
 {
-"VLA" : "black",
-"ATCA" : "black",
-"Parkes" : "black",
+"Effelsberg" : "red",
+"VLA" : "red",
+"VLBA" : "red",
+"MOST" : "red",
+"ATCA" : "red",
+"Parkes" : "red",
 "ALMA Extended" : "black",
 "ALMA Nuclear" : "black",
 "SDSS" : "black",

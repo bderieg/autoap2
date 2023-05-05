@@ -1,7 +1,10 @@
 {
-"VLA" : "p",
-"ATCA" : "<",
-"Parkes" : ">",
+"Effelsberg" : "o",
+"VLA" : "s",
+"VLBA" : "X",
+"MOST" : "*",
+"ATCA" : "v",
+"Parkes" : "P",
 "ALMA Extended" : "^",
 "ALMA Nuclear" : "v",
 "SDSS" : "+",

@@ -87,11 +87,11 @@ for target in target_names:
                 sed_telenames_arr,\
                 unique_legend_points,\
                 sed_unc_upper_arr, sed_unc_lower_arr):
-            ax.scatter(xval, yval, marker=sed_ps[telename], color=sed_colors[telename], label=legendname)
+            ax.scatter(xval, yval, marker=sed_ps[telename], color=sed_colors[telename], label=legendname, zorder=1)
             if unc_upper < 0.0:
-                ax.errorbar(xval, yval, yerr=[[0.3*yval],[0]], uplims=True, fmt='none', ecolor='black')
+                ax.errorbar(xval, yval, yerr=[[0.3*yval],[0]], uplims=True, fmt='none', ecolor='black', zorder=0)
             else:
-                ax.errorbar(xval, yval, yerr=[[unc_lower],[unc_upper]], fmt='none', ecolor='black', capsize=0.0)
+                ax.errorbar(xval, yval, yerr=[[unc_lower],[unc_upper]], fmt='none', ecolor='black', capsize=0.0, zorder=0)
         # Set other plot parameters
         ax.set_xscale('log')
         ax.set_yscale('log')
@@ -104,11 +104,11 @@ for target in target_names:
         ax.yaxis.set_major_formatter(FuncFormatter(lambda x,pos : int(np.log10(x))))
         # Set twin wavelength axis
         axwl = ax.twiny()
-        axwl.set_xlabel('Rest Wavelength (\u03BCm)')
+        axwl.set_xlabel('log$_{10}$ Rest Wavelength (m)')
         axwl.set_xlim([3e8/i for i in ax.get_xlim()])
         axwl.set_xscale('log')
         axwl.xaxis.set_major_locator(LogLocator(base=10, numticks=10))
-        axwl.xaxis.set_major_formatter(FuncFormatter(lambda x,pos : int(1e6*x)))
+        axwl.xaxis.set_major_formatter(FuncFormatter(lambda x,pos : int(np.log10(x))))
         # Show plot
         plt.tight_layout()
         plt.show()
