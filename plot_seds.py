@@ -1,4 +1,6 @@
+import sys
 import os
+sys.path.insert(0, './lib')
 
 import pandas as pd
 import numpy as np
@@ -6,6 +8,10 @@ import json
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, LogLocator
 from decimal import Decimal
+
+import logging
+
+import physical_functions as pf
 
 #################
 # Set constants #
@@ -48,14 +54,31 @@ else:
 if workdir[-1] != '/':
     workdir += '/'
 sed_data_loc = workdir + "sed_data.json"
+fit_data_loc = workdir + "fit_data.json"
+galaxy_properties_loc = workdir + "galaxy_properties.csv"
 
-# Import file
+# Import SED file
 try:
     seds = pd.read_json(sed_data_loc)
 except FileNotFoundError:
     print(' ')
     print('SED data file not found . . . exiting')
     exit()
+
+# Import fit file
+try:
+    fits = json.load(open(fit_data_loc))
+except FileNotFoundError:
+    pass
+
+# Import galaxy properties file
+try:
+    galaxy_properties = pd.read_csv(galaxy_properties_loc, index_col='Galaxy')
+    new_index = [old_index.replace(" ","") for old_index in galaxy_properties.index]
+    galaxy_properties = galaxy_properties.rename(index=dict(zip(galaxy_properties.index, new_index)))
+except FileNotFoundError:
+    print(' ')
+    logging.warning('galaxy property data file not found . . . fits will not be plotted')
 
 ########################
 # Loop through targets #
@@ -76,11 +99,23 @@ for target in target_names:
         sed_unc_lower_arr = np.transpose(np.asarray([sed_unc_lower[key] for key in sed_flux]))
         sed_unc_upper_arr = np.transpose(np.asarray([sed_unc_upper[key] for key in sed_flux]))
         sed_telenames_arr = np.transpose(np.asarray([sed_telenames[key] for key in sed_flux]))
+        # Import fit data
+        fitparams = {}
+        print(galaxy_properties['D_L (Mpc)'][target])
+        try:
+            for key in fits[target]:
+                fitparams[key] = {}
+                fitparams[key]['mass'] = fits[target][key]['mass']
+                fitparams[key]['temperature'] = fits[target][key]['temperature']
+                fitparams[key]['beta'] = fits[target][key]['beta']
+                fitparams[key]['distance'] = galaxy_properties['D_L (Mpc)'][target.replace(" ","")]
+        except KeyError:
+            pass
         # Make unique legend list
         unique_legend_points = ["_"] * len(sed_telenames_arr)
         for ind in np.unique(np.asarray(sed_telenames_arr), return_index=True)[1]:
             unique_legend_points[ind] = sed_telenames_arr[ind] 
-        # Plot
+        # Plot data
         fig, ax = plt.subplots()
         for xval,yval,telename,legendname,unc_upper,unc_lower\
                 in zip(sed_data_arr[0], sed_data_arr[1],\
@@ -92,6 +127,18 @@ for target in target_names:
                 ax.errorbar(xval, yval, yerr=[[0.3*yval],[0]], uplims=True, fmt='none', ecolor='black', zorder=0)
             else:
                 ax.errorbar(xval, yval, yerr=[[unc_lower],[unc_upper]], fmt='none', ecolor='black', capsize=0.0, zorder=0)
+        # Plot fits
+        try:
+            for key in fitparams:
+                basis = np.logspace(np.log10(min(sed_data_arr[0,:])), np.log10(max(sed_data_arr[0,:])), num=500)
+                if "mb" in key:
+                    fitted_curve = pf.mb_basic(fitparams[key], basis)
+                elif "pow" in key:
+                    # TODO: Put requisite function here analogous to previous line
+                    pass
+                ax.plot(basis, fitted_curve, 'k-.')
+        except KeyError:
+            pass
         # Set other plot parameters
         ax.set_xscale('log')
         ax.set_yscale('log')
