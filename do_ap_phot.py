@@ -182,7 +182,7 @@ def full_photometry(target_name):
                 if 'u' in sed_data[target]["sed_flags"][key]:
                     correction = 1.0
                     if "PACS" in fltr:
-                        correction = flux_conversion.beam_size[fltr](header)
+                        correction = flux_conversion.beam_size[fltr](img_hdr)
                     flux_final = correction * 4.5*np.sqrt(np.mean(pix_ap_cutouts[main_ind]**2))
                     total_unc_upper = -1
                     total_unc_lower = 0
