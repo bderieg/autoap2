@@ -100,13 +100,19 @@ sed_data = json.load(open(sed_data_loc))
 target_data = sed_data[target]
 freq = np.array([ target_data['sed_freq'][key] for key in target_data['sed_freq'] ])
 flux = np.array([ target_data['sed_flux'][key] for key in target_data['sed_flux'] ])
+unc_upper = np.array([ target_data['sed_unc_upper'][key] for key in target_data['sed_unc_upper'] ])
+unc_lower = np.array([ target_data['sed_unc_lower'][key] for key in target_data['sed_unc_lower'] ])
 
 sort_ind = np.argsort(freq)
 freq = freq[sort_ind]
 flux = flux[sort_ind]
+unc_upper = unc_upper[sort_ind]
+unc_lower = unc_lower[sort_ind]
 
 freq = [freq[i] for i in points]
 flux = [flux[i] for i in points]
+unc_upper = [unc_upper[i] for i in points]
+unc_lower = [unc_lower[i] for i in points]
 
 # Import existing fit data structure
 target_fit = {}
@@ -156,9 +162,9 @@ elif fitfunc.lower() == "pow":
     bparams.add('alpha', value=init_slope, vary=True)
 
 # Perform fit
-minner = lmfit.Minimizer(pf.mb, bparams, fcn_args=(freq,flux))
+minner = lmfit.Minimizer(pf.mb, bparams, fcn_args=(freq,flux,unc_upper,unc_lower))
 if fitfunc.lower() == "pow":
-    minner = lmfit.Minimizer(pf.powerlaw, bparams, fcn_args=(freq,flux))
+    minner = lmfit.Minimizer(pf.powerlaw, bparams, fcn_args=(freq,flux,unc_upper,unc_lower))
 result = minner.minimize()
 
 #####################

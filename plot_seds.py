@@ -113,7 +113,6 @@ for target in target_names:
                 elif "pow" in key:
                     fitparams[key]['b'] = fits[target][key]['b']
                     fitparams[key]['alpha'] = fits[target][key]['alpha']
-            print(fitparams)
         except KeyError:
             pass
         # Make unique legend list
@@ -134,19 +133,23 @@ for target in target_names:
                 ax.errorbar(xval, yval, yerr=[[unc_lower],[unc_upper]], fmt='none', ecolor='black', capsize=0.0, zorder=0)
         # Plot fits
         try:
+            basis = np.logspace(np.log10(min(sed_data_arr[0,:])), np.log10(max(sed_data_arr[0,:])), num=500)
+            total_curve = np.zeros_like(basis)
             for key in fitparams:
-                basis = np.logspace(np.log10(min(sed_data_arr[0,:])), np.log10(max(sed_data_arr[0,:])), num=500)
                 if "mb" in key:
                     fitted_curve = pf.mb_basic(fitparams[key], basis)
+                    ax.plot(basis, fitted_curve, c='maroon', ls='dashdot', label='modified blackbody')
                 elif "pow" in key:
                     fitted_curve = pf.powerlaw_basic(fitparams[key], basis)
-                ax.plot(basis, fitted_curve, 'k-.')
+                    ax.plot(basis, fitted_curve, c='darkblue', ls='dashdot', label='power law')
+                total_curve += fitted_curve
+            ax.plot(basis, total_curve, c='black', ls='solid', label='total emission')
         except KeyError:
             pass
         # Set other plot parameters
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.legend()
+        ax.legend(loc='upper center', bbox_to_anchor=(0.5,-0.2), ncol=4)
         ax.set_title(target)
         ax.set_xlabel('log$_{10}$ Rest Frequency (Hz)')
         ax.set_ylabel('log$_{10}$ Flux Density (Jy)')

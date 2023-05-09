@@ -4,7 +4,7 @@ import astropy.units as u
 
 # Modified blackbody function
 
-def mb(params, nu, data):
+def mb(params, nu, data, unc_upper, unc_lower):
     # Define constants in SI units
     h = 6.62607015e-34
     c = 299792458
@@ -23,7 +23,18 @@ def mb(params, nu, data):
 
     model = [ si_to_Jy * kap * mass * b / distance**2 for b,kap in zip(blackbody,kappa) ]
 
-    return [ (m-d)**2 for m,d in zip(model,data) ]
+    lower_weights = [ 1/(np.sqrt(s)) for s in unc_lower ]
+    upper_weights = [ 1/(np.sqrt(s)) for s in unc_upper ]
+    lower_weights = [ -1 if np.isnan(w) else w for w in lower_weights ]
+    upper_weights = [ -1 if np.isnan(w) else w for w in upper_weights ]
+    lower_weights = [ 0 if np.isinf(w) else w for w in lower_weights ]
+    upper_weights = [ 0 if np.isinf(w) else w for w in upper_weights ]
+    lower_weights = [ max(lower_weights) if w==0 else w for w in lower_weights ]
+    upper_weights = [ max(upper_weights) if w==0 else w for w in upper_weights ]
+    lower_weights = [ lw if uw>0 else 0 for lw,uw in zip(lower_weights,upper_weights) ]
+    upper_weights = [ uw if uw>0 else max(upper_weights) for uw in upper_weights ]
+
+    return [ lw*(m-d)**2 if m<d else uw*(m-d)**2 for m,d,lw,uw in zip(model,data,lower_weights,upper_weights) ]
 
 def mb_basic(params, nu):
     h = 6.62607015e-34
@@ -51,13 +62,24 @@ def mb_basic(params, nu):
 
 # Power law function
 
-def powerlaw(params, nu, data):
+def powerlaw(params, nu, data, unc_upper, unc_lower):
     alpha = params['alpha'].value
     b = params['b'].value
 
     model = [ b*n**alpha for n in nu ]
 
-    return [ (m-d)**2 for m,d in zip(model,data) ]
+    lower_weights = [ 1/(np.sqrt(s)) for s in unc_lower ]
+    upper_weights = [ 1/(np.sqrt(s)) for s in unc_upper ]
+    lower_weights = [ -1 if np.isnan(w) else w for w in lower_weights ]
+    upper_weights = [ -1 if np.isnan(w) else w for w in upper_weights ]
+    lower_weights = [ 0 if np.isinf(w) else w for w in lower_weights ]
+    upper_weights = [ 0 if np.isinf(w) else w for w in upper_weights ]
+    lower_weights = [ max(lower_weights) if w==0 else w for w in lower_weights ]
+    upper_weights = [ max(upper_weights) if w==0 else w for w in upper_weights ]
+    lower_weights = [ lw if uw>0 else 0 for lw,uw in zip(lower_weights,upper_weights) ]
+    upper_weights = [ uw if uw>0 else max(upper_weights) for uw in upper_weights ]
+
+    return [ lw*(m-d)**2 if m<d else uw*(m-d)**2 for m,d,lw,uw in zip(model,data,lower_weights,upper_weights) ]
 
 def powerlaw_basic(params, nu):
     alpha = params['alpha']
