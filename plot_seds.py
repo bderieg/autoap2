@@ -5,6 +5,7 @@ sys.path.insert(0, './lib')
 import pandas as pd
 import numpy as np
 import json
+import astropy.units as u
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, LogLocator
 from decimal import Decimal
@@ -69,7 +70,7 @@ except FileNotFoundError:
 try:
     fits = json.load(open(fit_data_loc))
 except FileNotFoundError:
-    pass
+    fits = {}
 
 # Import galaxy properties file
 try:
@@ -101,14 +102,18 @@ for target in target_names:
         sed_telenames_arr = np.transpose(np.asarray([sed_telenames[key] for key in sed_flux]))
         # Import fit data
         fitparams = {}
-        print(galaxy_properties['D_L (Mpc)'][target])
         try:
             for key in fits[target]:
                 fitparams[key] = {}
-                fitparams[key]['mass'] = fits[target][key]['mass']
-                fitparams[key]['temperature'] = fits[target][key]['temperature']
-                fitparams[key]['beta'] = fits[target][key]['beta']
-                fitparams[key]['distance'] = galaxy_properties['D_L (Mpc)'][target.replace(" ","")]
+                if "mb" in key:
+                    fitparams[key]['mass'] = fits[target][key]['mass']*u.solMass.to(u.kg)
+                    fitparams[key]['temperature'] = fits[target][key]['temperature']
+                    fitparams[key]['beta'] = fits[target][key]['beta']
+                    fitparams[key]['distance'] = galaxy_properties['D_L (Mpc)'][target.replace(" ","")]*u.Mpc.to(u.m)
+                elif "pow" in key:
+                    fitparams[key]['b'] = fits[target][key]['b']
+                    fitparams[key]['alpha'] = fits[target][key]['alpha']
+            print(fitparams)
         except KeyError:
             pass
         # Make unique legend list
@@ -134,8 +139,7 @@ for target in target_names:
                 if "mb" in key:
                     fitted_curve = pf.mb_basic(fitparams[key], basis)
                 elif "pow" in key:
-                    # TODO: Put requisite function here analogous to previous line
-                    pass
+                    fitted_curve = pf.powerlaw_basic(fitparams[key], basis)
                 ax.plot(basis, fitted_curve, 'k-.')
         except KeyError:
             pass
