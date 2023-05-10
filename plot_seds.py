@@ -153,7 +153,7 @@ for target in target_names:
         ax.set_title(target)
         ax.set_xlabel('log$_{10}$ Rest Frequency (Hz)')
         ax.set_ylabel('log$_{10}$ Flux Density (Jy)')
-        ax.set_ylim([0.3*min(sed_data_arr[1]), 3.0*max(sed_data_arr[1])])
+        ax.set_ylim([0.3*min([aa if aa > 0 else 1e10 for aa in sed_data_arr[1]]), 3.0*max(sed_data_arr[1])])
         ax.xaxis.set_major_formatter(FuncFormatter(lambda x,pos : int(np.log10(x))))
         ax.yaxis.set_major_formatter(FuncFormatter(lambda x,pos : int(np.log10(x))))
         # Set twin wavelength axis

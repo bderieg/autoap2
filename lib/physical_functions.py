@@ -34,7 +34,7 @@ def mb(params, nu, data, unc_upper, unc_lower):
     lower_weights = [ lw if uw>0 else 0 for lw,uw in zip(lower_weights,upper_weights) ]
     upper_weights = [ uw if uw>0 else max(upper_weights) for uw in upper_weights ]
 
-    return [ lw*(m-d)**2 if m<d else uw*(m-d)**2 for m,d,lw,uw in zip(model,data,lower_weights,upper_weights) ]
+    return [ lw*(np.log10(m)-np.log10(d))**2 if m<d else uw*(np.log10(m)-np.log10(d))**2 for m,d,lw,uw in zip(model,data,lower_weights,upper_weights) ]
 
 def mb_basic(params, nu):
     h = 6.62607015e-34
@@ -79,7 +79,9 @@ def powerlaw(params, nu, data, unc_upper, unc_lower):
     lower_weights = [ lw if uw>0 else 0 for lw,uw in zip(lower_weights,upper_weights) ]
     upper_weights = [ uw if uw>0 else max(upper_weights) for uw in upper_weights ]
 
-    return [ lw*(m-d)**2 if m<d else uw*(m-d)**2 for m,d,lw,uw in zip(model,data,lower_weights,upper_weights) ]
+    fit_func = [ lw*(np.log10(m)-np.log10(d))**2 if m<d else uw*(np.log10(m)-np.log10(d))**2 for m,d,lw,uw in zip(model,data,lower_weights,upper_weights) ]
+
+    return fit_func
 
 def powerlaw_basic(params, nu):
     alpha = params['alpha']

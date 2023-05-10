@@ -39,7 +39,7 @@ def get_sed_data(target_name):
         newrow = False
         # IRAS
         if "quality flag" in row["Qualifiers"] and\
-                (("100" in row["Observed Passband"]) or ("60" in row["Observed Passband"])) and\
+                (("100" in row["Observed Passband"]) or ("60" in row["Observed Passband"]) or ("25" in row["Observed Passband"])) and\
                 "IRAS" in row["Observed Passband"]:
             sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
             sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
@@ -64,7 +64,7 @@ def get_sed_data(target_name):
         # Spitzer MIPS
         if "MIPS" in row["Observed Passband"] and\
                 "Total" in row["Spatial Mode"] and\
-                row["Frequency"] < 1e13:
+                row["Frequency"] < 1.3e13:
             sed["sed_flux"][row["Observed Passband"]+" "+str(band_itr)] = row["Flux Density"]
             sed["sed_freq"][row["Observed Passband"]+" "+str(band_itr)] = row["Frequency"]
             sed["sed_unc_upper"][row["Observed Passband"]+" "+str(band_itr)] = row["Upper limit of uncertainty"]

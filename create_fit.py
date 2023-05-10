@@ -102,17 +102,24 @@ freq = np.array([ target_data['sed_freq'][key] for key in target_data['sed_freq'
 flux = np.array([ target_data['sed_flux'][key] for key in target_data['sed_flux'] ])
 unc_upper = np.array([ target_data['sed_unc_upper'][key] for key in target_data['sed_unc_upper'] ])
 unc_lower = np.array([ target_data['sed_unc_lower'][key] for key in target_data['sed_unc_lower'] ])
+tele_names = np.array([ target_data['sed_telescopenames'][key] for key in target_data['sed_telescopenames'] ])
 
 sort_ind = np.argsort(freq)
 freq = freq[sort_ind]
 flux = flux[sort_ind]
 unc_upper = unc_upper[sort_ind]
 unc_lower = unc_lower[sort_ind]
+tele_names = tele_names[sort_ind]
 
 freq = [freq[i] for i in points]
 flux = [flux[i] for i in points]
 unc_upper = [unc_upper[i] for i in points]
 unc_lower = [unc_lower[i] for i in points]
+tele_names = [tele_names[i] for i in points]
+
+print("Fitting the following points:")
+for i in tele_names:
+    print("\t"+i)
 
 # Import existing fit data structure
 target_fit = {}
@@ -137,7 +144,12 @@ for key in target_fit[target]:
     if "pow" in key:
         flux_sub += pf.powerlaw_basic(target_fit[target][key], freq)
     elif "mb" in key:
+        target_fit[target][key]['distance'] = galaxy_properties['D_L (Mpc)'][target]*u.Mpc.to(u.m)
         flux_sub += pf.mb_basic(target_fit[target][key], freq)
+        del target_fit[target][key]['distance']
+for itr, band in zip(range(len(tele_names)), tele_names):
+    if "ALMA Extended" in band:
+        flux_sub[itr] = 0.0
 flux -= flux_sub
 
 ############
@@ -176,14 +188,24 @@ if fitfunc.lower() == "mb":
     itr = 0
     while "mb "+str(itr) in target_fit[target]:
         itr += 1
-    target_fit[target]["mb "+str(itr)] = {
-                    "mass" : result.params['mass'].value*u.kg.to(u.solMass),
-                    "mass_unc" : result.params['mass'].stderr*u.kg.to(u.solMass),
-                    "temperature" : result.params['temperature'].value,
-                    "temperature_unc" : result.params['temperature'].stderr,
-                    "beta" : result.params['beta'].value,
-                    "beta_unc" : result.params['beta'].stderr
-                }
+    try:
+        target_fit[target]["mb "+str(itr)] = {
+                        "mass" : result.params['mass'].value*u.kg.to(u.solMass),
+                        "mass_unc" : result.params['mass'].stderr*u.kg.to(u.solMass),
+                        "temperature" : result.params['temperature'].value,
+                        "temperature_unc" : result.params['temperature'].stderr,
+                        "beta" : result.params['beta'].value,
+                        "beta_unc" : result.params['beta'].stderr
+                    }
+    except TypeError:
+        target_fit[target]["mb "+str(itr)] = {
+                        "mass" : result.params['mass'].value*u.kg.to(u.solMass),
+                        "mass_unc" : np.nan,
+                        "temperature" : result.params['temperature'].value,
+                        "temperature_unc" : result.params['temperature'].stderr,
+                        "beta" : result.params['beta'].value,
+                        "beta_unc" : result.params['beta'].stderr
+                    }
 elif fitfunc.lower() == "pow":
     itr = 0
     while "pow "+str(itr) in target_fit[target]:
