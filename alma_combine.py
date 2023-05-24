@@ -1,0 +1,73 @@
+import json
+import os
+
+# Prompt to change working directory
+print(' ')
+workdir = input("Enter working directory (relative or absolute) : ")
+if workdir[-1] != '/':
+    workdir += '/'
+sed_data_loc = workdir + "sed_data.json"
+
+# Prompt to specify targets for photometry
+print(' ')
+curinp = input("Do photometry on ALL subfolders in this directory? (y/n) : ")
+subdirs = [f.name for f in os.scandir(workdir) if f.is_dir()]
+if curinp=='y' or curinp=='Y':
+    target_names = subdirs
+else:
+    print(' ')
+    target_names = input("Enter (as a comma-separated list) the desired targets : ")
+    target_names = target_names.split(',')
+
+sed_data = json.load(open(sed_data_loc))
+
+for target in target_names:
+
+    # Find extended keys
+    extended_keys_nat = []
+    extended_keys_bri = []
+    for key in sed_data[target]['sed_flux']:
+        if "Extended" in key and "Bri" in key:
+            extended_keys_bri.append(key)
+        elif "Extended" in key and "Nat" in key:
+            extended_keys_nat.append(key)
+
+    # Get combined flux and uncertainty (natural weighting)
+    lower_flux_nat = 0.0
+    lower_unc_nat = 0.0
+    upper_unc_nat = 0.0
+    for key in extended_keys_nat:
+        if "Lower" in key:
+            lower_flux_nat = sed_data[target]['sed_flux'][key]
+            lower_unc_nat = sed_data[target]['sed_unc_lower'][key]
+        elif "Upper" in key:
+            upper_unc_nat = sed_data[target]['sed_flux'][key] + sed_data[target]['sed_unc_upper'][key]
+
+    # Get combined flux and uncertainty (Briggs weighting)
+    lower_flux_bri = 0.0
+    lower_unc_bri = 0.0
+    upper_unc_bri = 0.0
+    for key in extended_keys_bri:
+        if "Lower" in key:
+            lower_flux_bri = sed_data[target]['sed_flux'][key]
+            lower_unc_bri = sed_data[target]['sed_unc_lower'][key]
+        elif "Upper" in key:
+            upper_unc_bri = sed_data[target]['sed_flux'][key] + sed_data[target]['sed_unc_upper'][key]
+
+    # Make new extended keys
+    sed_data[target]['sed_flux']['ALMAExtendedCombinedNat'] = lower_flux_nat
+    sed_data[target]['sed_freq']['ALMAExtendedCombinedNat'] = sed_data[target]['sed_freq'][extended_keys_nat[0]]
+    sed_data[target]['sed_unc_upper']['ALMAExtendedCombinedNat'] = upper_unc_nat
+    sed_data[target]['sed_unc_lower']['ALMAExtendedCombinedNat'] = lower_unc_nat
+    sed_data[target]['sed_telescopenames']['ALMAExtendedCombinedNat'] = "ALMA Extended"
+
+    sed_data[target]['sed_flux']['ALMAExtendedCombinedBri'] = lower_flux_bri
+    sed_data[target]['sed_freq']['ALMAExtendedCombinedBri'] = sed_data[target]['sed_freq'][extended_keys_bri[0]]
+    sed_data[target]['sed_unc_upper']['ALMAExtendedCombinedBri'] = upper_unc_bri
+    sed_data[target]['sed_unc_lower']['ALMAExtendedCombinedBri'] = lower_unc_bri
+    sed_data[target]['sed_telescopenames']['ALMAExtendedCombinedBri'] = "ALMA Extended"
+
+    # Delete the old extended keys
+    for key1 in sed_data[target]:
+        for key2 in extended_keys:
+            del sed_data[key1][key2]

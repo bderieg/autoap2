@@ -95,7 +95,7 @@ def full_photometry(target_name):
     filter_names = []
     for r, d, f in os.walk(workdir+subdir+'apertures/'):
         for file in f:
-            if "background" not in file and "Lower" not in file:
+            if "background" not in file:
                 full_path = workdir+subdir+'apertures/'+file
                 bg_path = workdir+subdir+'apertures/background'+file
                 ap_file_paths.append(full_path)

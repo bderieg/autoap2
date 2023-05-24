@@ -4,7 +4,7 @@ import re
 
 # Set some constants
 band_contains = [
-        "ALMAExtended",
+        "ALMANuclear",
         "ALMAExtended",
         "SPIRE500",
         "SPIRE350",
@@ -38,7 +38,7 @@ def round_to_n(x,n=3):
     return r
 
 def is_close(a,b):
-    if (a < 1.05*b) and (a > 0.95*b):
+    if (a < 1.08*b) and (a > 0.92*b):
         return True
     else:
         return False
@@ -75,17 +75,17 @@ with open("/home/ben/Desktop/new_measurements.tex","w") as f:
         for band in band_contains:
             contains = False
             for key in sed_data[target]["sed_flux"]:
-                almaitr = 0
                 if band in key:
-                    flux = str(round_to_n(sed_data[target]["sed_flux"][key]))
-                    if band == "ALMAExtended":
+
+                    footnote = ""
+                    if "ALMA" in key:
                         freq = sed_data[target]["sed_freq"][key]
-                        if not is_close(2.5e9,freq) and almaitr == 0:
-                            continue
-                        if not is_close(3.6e9,freq) and almaitr == 1:
-                            continue
-                        flux = str(round_to_n(1e3*float(flux)))
-                        almaitr += 1
+                        if is_close(230e9,freq):
+                            footnote = "^{\\text{\\textasteriskcentered}}"
+                        elif is_close(350e9,freq):
+                            footnote = "^{\\text{\\textdagger}}"
+
+                    flux = str(round_to_n(sed_data[target]["sed_flux"][key]))
                     unc = ""
                     unc_upper = str(round_to_n(sed_data[target]["sed_unc_upper"][key],n=2))
                     unc_lower = str(round_to_n(sed_data[target]["sed_unc_lower"][key],n=2))
@@ -97,13 +97,13 @@ with open("/home/ben/Desktop/new_measurements.tex","w") as f:
                         target_ms += " $<"+flux+"$ &"
                     else:
                         if "+" in unc:
-                            target_ms += " $"+flux+" ("+unc+")$ &"
-                        elif not is_close(float(unc),0.1*float(flux)) and "SPIRE" in key:
-                            target_ms += " $"+flux+" ("+unc+")$ &"
+                            target_ms += " $"+flux+" ("+unc+")"+footnote+"$ &"
+                        elif not is_close(float(unc),0.1*float(flux)) and ("SPIRE" in key or "ALMA" in key):
+                            target_ms += " $"+flux+" ("+unc+")"+footnote+"$ &"
                         elif not is_close(float(unc),0.07*float(flux)) and "PACS" in key:
-                            target_ms += " $"+flux+" ("+unc+")$ &"
+                            target_ms += " $"+flux+" ("+unc+")"+footnote+"$ &"
                         else:
-                            target_ms += " $"+flux+"$ &"
+                            target_ms += " $"+flux+footnote+"$ &"
                     contains = True
                     break
             if contains is False:
