@@ -61,7 +61,7 @@ outputfile_loc = exportdir + "new_measurements.tex"
 sed_data = json.load(open(sed_data_loc))
 
 # Write LaTeX file
-with open("/home/ben/Desktop/new_measurements.tex","w") as f:
+with open(outputfile_loc,"w") as f:
     for target in sorted(sed_data):
         target_ms = ""
         pred = False
