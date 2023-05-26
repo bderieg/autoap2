@@ -2,6 +2,8 @@ import numpy as np
 
 abs_unc = {
     'ALMAExtended' : 0.1,
+    'ALMAExtendedNat' : 0.1,
+    'ALMAExtendedBri' : 0.1,
     'ALMAExtendedLowerNat' : 0.1,
     'ALMAExtendedUpperNat' : 0.1,
     'ALMAExtendedLowerBri' : 0.1,
@@ -49,6 +51,8 @@ abs_unc = {
 
 color_correction = {
     'ALMAExtended' : lambda header : 1,
+    'ALMAExtendedNat' : lambda header : 1,
+    'ALMAExtendedBri' : lambda header : 1,
     'ALMAExtendedLowerNat' : lambda header : 1,
     'ALMAExtendedUpperNat' : lambda header : 1,
     'ALMAExtendedLowerBri' : lambda header : 1,
@@ -96,6 +100,8 @@ color_correction = {
 
 brightness_conversion = {
     'ALMAExtended' : lambda header : 1,
+    'ALMAExtendedNat' : lambda header : 1,
+    'ALMAExtendedBri' : lambda header : 1,
     'ALMAExtendedLowerNat' : lambda header : 1,
     'ALMAExtendedUpperNat' : lambda header : 1,
     'ALMAExtendedLowerBri' : lambda header : 1,
@@ -147,6 +153,8 @@ brightness_conversion = {
 
 beam_size = {
     'ALMAExtended' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
+    'ALMAExtendedNat' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
+    'ALMAExtendedBri' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
     'ALMAExtendedLowerNat' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
     'ALMAExtendedUpperNat' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
     'ALMAExtendedLowerBri' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
@@ -194,6 +202,8 @@ beam_size = {
 
 pix_size = {
     'ALMAExtended' : lambda header : header['CDELT2']**2,
+    'ALMAExtendedNat' : lambda header : header['CDELT2']**2,
+    'ALMAExtendedBri' : lambda header : header['CDELT2']**2,
     'ALMAExtendedLowerNat' : lambda header : header['CDELT2']**2,
     'ALMAExtendedUpperNat' : lambda header : header['CDELT2']**2,
     'ALMAExtendedLowerBri' : lambda header : header['CDELT2']**2,
@@ -241,6 +251,8 @@ pix_size = {
 
 other_correction = {
     'ALMAExtended' : lambda header,eff_radius : 1,
+    'ALMAExtendedNat' : lambda header,eff_radius : 1,
+    'ALMAExtendedBri' : lambda header,eff_radius : 1,
     'ALMAExtendedLowerNat' : lambda header,eff_radius : 1,
     'ALMAExtendedUpperNat' : lambda header,eff_radius : 1,
     'ALMAExtendedLowerBri' : lambda header,eff_radius : 1,

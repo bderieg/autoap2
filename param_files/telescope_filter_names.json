@@ -7,6 +7,8 @@
 "ATCA" : "ATCA",
 "Parkes" : "Parkes",
 "ALMAExtended" : "ALMA Extended",
+"ALMAExtendedNat" : "ALMA Extended",
+"ALMAExtendedBri" : "ALMA Extended",
 "ALMAExtendedLowerNat" : "ALMA Extended",
 "ALMAExtendedUpperNat" : "ALMA Extended",
 "ALMAExtendedLowerBri" : "ALMA Extended",

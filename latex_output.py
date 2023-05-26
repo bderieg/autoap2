@@ -55,7 +55,7 @@ print(' ')
 exportdir = input("Enter desired table output directory (relative or absolute) : ")
 if exportdir[-1] != '/':
     exportdir += '/'
-outputfile_loc = exportdir + "new_measurements.tex"
+outputfile_loc = exportdir + "new_measurements_table.tex"
 
 # Open SED data file
 sed_data = json.load(open(sed_data_loc))
@@ -107,7 +107,7 @@ with open(outputfile_loc,"w") as f:
                     contains = True
                     break
             if contains is False:
-                target_ms += " &"
+                target_ms += " \\nodata &"
         target_ms = target_ms[:-2]
         target_ms += " \\\\"
         print(target_ms, file=f)
