@@ -48,10 +48,10 @@ else:
     target_names = input("Enter (as a comma-separated list) the desired targets : ")
     target_names = target_names.split(',')
 
-# Prompt to only make apertures for previously-non-existent apertures
+# Prompt to only make apertures for previously-nonexistent apertures
 only_new = True
 print(' ')
-curinp = input("Create only previously-non-existent apertures? (Y/n) : ")
+curinp = input("Create only previously-nonexistent apertures? (Y/n) : ")
 if curinp.lower() == 'n' : only_new = False
 
 ########################
@@ -93,16 +93,16 @@ for target in target_names:
                         img = ext.data
                         # Get WCS data
                         wcs = WCS(ext.header, naxis=[1,2])
+                ## Get rid of redundant dimensions in data if necessary
+                img = img.squeeze()
             except FileNotFoundError:
                 logging.warning('For '+target_name+', \''+fltr+'.fits\' not found, but there exists a corresponding aperture file')
                 continue
 
             # Algorithmically determine main aperture for image
-            main_ap_sky, bg_ap_pix = imf.fit_ellipse_with_coordinates(
+            main_ap_sky, bg_ap_pix = imf.make_main_region(
                     img_path,
-                    gnd.get_coords(target),
-                    gnd.get_ellipse_parameters(target)["axis_ratio"],
-                    imf.find_background_flux(img_path)
+                    gnd.get_coords(target)
                     )
             main_ap_pix = main_ap_sky.to_pixel(wcs)
 

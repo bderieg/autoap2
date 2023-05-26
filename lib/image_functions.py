@@ -137,6 +137,7 @@ def find_blobs(full_img, main_mask, background_flux):
     sp.run(["xpaset","-p","ds9","region","save","./_temp_subaps_autoap2.reg"])
     sub_aps = Regions.read('./_temp_subaps_autoap2.reg', format='ds9')
     sub_aps = [ap.to_pixel(wcs) for ap in sub_aps]
+    sub_aps[0].visual={"color":"red"}
 
     # Close DS9
     sp.run(["xpaset","-p","ds9","exit"])
@@ -157,7 +158,7 @@ def find_blobs(full_img, main_mask, background_flux):
     return sub_aps
 
 
-def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, background_flux):
+def make_main_region(img_filename, icrs_coord):
 
     #####################
     # Set some stuff up #
@@ -185,6 +186,8 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, backgroun
                 wcs = WCS(ext.header, naxis=[1,2])
         ## Get rid of redundant dimensions in data if necessary
         img = img.squeeze()
+        # Assume desired header is always in the first extension
+        img_hdr = fitsfile[0].header
     except FileNotFoundError:
         return False, False
 
@@ -192,9 +195,28 @@ def fit_ellipse_with_coordinates(img_filename, icrs_coord, axis_ratio, backgroun
     # Prompt user to draw aperture #
     ################################
 
+    # Make a dummy aperture at the right coordinates (for reference)
+    if 'CDELT1' in img_hdr:
+        main_ap_sky = EllipseSkyRegion(
+                center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'),
+                height=0.1*len(img)*abs(img_hdr['CDELT1'])*u.deg,
+                width=0.1*len(img)*abs(img_hdr['CDELT1'])*u.deg,
+                angle=0*u.deg,
+                visual={'edgecolor':'green'}
+                )
+    else:
+        main_ap_sky = EllipseSkyRegion(
+                center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'),
+                height=0.005*u.deg,
+                width=0.005*u.deg,
+                angle=0*u.deg,
+                visual={'edgecolor':'green'}
+                )
+    main_ap_sky.write('./_temp_mainap_autoap2.reg', format='ds9', overwrite=True)
+
     # Open DS9 for user to edit aperture
     def open_ds9(img_path):
-        sp.run(["ds9", img_path])
+        sp.run(["ds9", img_path, "-region", './_temp_mainap_autoap2.reg'])
     ds9proc = Process(target=open_ds9, args=(img_filename,))
     ds9proc.start()
 
