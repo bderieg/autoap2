@@ -71,7 +71,7 @@ def find_background_flux(img_filename):
     return background_flux
 
 
-def find_blobs(full_img, main_mask, background_flux):
+def find_blobs(full_img, main_mask, background_flux, sub_aps):
 
     ##############
     # Get cutout #
@@ -82,12 +82,9 @@ def find_blobs(full_img, main_mask, background_flux):
     # Indices of removed pixels to be readded later
     xcut = ((main_mask.get_overlap_slices(full_img.shape)[0])[1]).start
     ycut = ((main_mask.get_overlap_slices(full_img.shape)[0])[0]).start
-
-    ######################
-    # Set blob threshold #
-    ######################
-
-    bth = 0.1 * (np.nanmax(img) - background_flux)
+    ## Remove these from sub_aps
+    for ap in sub_aps:
+        ap.center = PixCoord(ap.center.xy[0]-xcut, ap.center.xy[1]-ycut)
 
     ###########################
     # Create dummy WCS object #
@@ -120,9 +117,15 @@ def find_blobs(full_img, main_mask, background_flux):
     # Temporarily save image as fits
     fits.writeto('./_temp_main_ap_autoap2.fits', img, header=header, overwrite=True)
 
+    # Save any preexistent subtraction apertures
+    Regions(sub_aps).write('./_temp_subaps_autoap2.reg', format='ds9', overwrite=True)
+
     # Open DS9 for user to edit aperture
     def open_ds9():
-        sp.run(["ds9", './_temp_main_ap_autoap2.fits'])
+        try:
+            sp.run(["ds9", './_temp_main_ap_autoap2.fits', '-region', './_temp_subaps_autoap2.reg'])
+        except:
+            sp.run(["ds9", './_temp_main_ap_autoap2.fits'])
     ds9proc = Process(target=open_ds9)
     ds9proc.start()
 
@@ -158,7 +161,7 @@ def find_blobs(full_img, main_mask, background_flux):
     return sub_aps
 
 
-def make_main_region(img_filename, icrs_coord):
+def make_main_region(img_filename, ap_filename, icrs_coord):
 
     #####################
     # Set some stuff up #
@@ -195,23 +198,29 @@ def make_main_region(img_filename, icrs_coord):
     # Prompt user to draw aperture #
     ################################
 
-    # Make a dummy aperture at the right coordinates (for reference)
-    if 'CDELT1' in img_hdr:
-        main_ap_sky = EllipseSkyRegion(
-                center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'),
-                height=0.1*len(img)*abs(img_hdr['CDELT1'])*u.deg,
-                width=0.1*len(img)*abs(img_hdr['CDELT1'])*u.deg,
-                angle=0*u.deg,
-                visual={'edgecolor':'green'}
-                )
-    else:
-        main_ap_sky = EllipseSkyRegion(
-                center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'),
-                height=0.005*u.deg,
-                width=0.005*u.deg,
-                angle=0*u.deg,
-                visual={'edgecolor':'green'}
-                )
+    # Check if an aperture already exists
+    try:
+        main_ap_sky = Regions.read(ap_filename, format='ds9')
+        main_ap_sky = ([r for r in main_ap_sky if r.visual['edgecolor']=='green'])[0]
+    # Otherwise make a dummy aperture at the target coordinates (for reference)
+    except FileNotFoundError:
+        if 'CDELT1' in img_hdr:
+            main_ap_sky = EllipseSkyRegion(
+                    center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'),
+                    height=0.1*len(img)*abs(img_hdr['CDELT1'])*u.deg,
+                    width=0.1*len(img)*abs(img_hdr['CDELT1'])*u.deg,
+                    angle=0*u.deg,
+                    visual={'edgecolor':'green'}
+                    )
+        else:
+            main_ap_sky = EllipseSkyRegion(
+                    center=SkyCoord(icrs_coord[0], icrs_coord[1], unit='deg', frame='icrs'),
+                    height=0.005*u.deg,
+                    width=0.005*u.deg,
+                    angle=0*u.deg,
+                    visual={'edgecolor':'green'}
+                    )
+    # Temporarily write out this aperture
     main_ap_sky.write('./_temp_mainap_autoap2.reg', format='ds9', overwrite=True)
 
     # Open DS9 for user to edit aperture

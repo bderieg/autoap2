@@ -81,6 +81,7 @@ for target in target_names:
 
             # Open image
             img_path = workdir+target+"/fits/"+fltr+".fits"
+            ap_path = workdir+target+"/apertures/"+fltr+".reg"
             try:
                 # Open
                 fitsfile = fits.open(img_path)
@@ -102,12 +103,21 @@ for target in target_names:
             # Algorithmically determine main aperture for image
             main_ap_sky, bg_ap_pix = imf.make_main_region(
                     img_path,
+                    ap_path,
                     gnd.get_coords(target)
                     )
             main_ap_pix = main_ap_sky.to_pixel(wcs)
 
             # Algorithmically determine subtraction apertures
-            sub_aps_pix = imf.find_blobs(img, main_ap_pix.to_mask(), imf.integrate_flux((bg_ap_pix.to_mask()).multiply(img),0)/100)
+            ## Get any preexisting subtraction apertures
+            sub_aps_pix = []
+            try:
+                sub_aps_sky = Regions.read(ap_path, format='ds9')
+                sub_aps_sky = [r for r in sub_aps_sky if r.visual['edgecolor']=='red']
+                sub_aps_pix = [r.to_pixel(wcs) for r in sub_aps_sky]
+            except FileNotFoundError:
+                pass
+            sub_aps_pix = imf.find_blobs(img, main_ap_pix.to_mask(), imf.integrate_flux((bg_ap_pix.to_mask()).multiply(img),0)/100, sub_aps_pix)
             sub_aps_sky = [ap.to_sky(wcs) for ap in sub_aps_pix]
 
             # Write out apertures to files
