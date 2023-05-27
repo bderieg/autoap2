@@ -140,7 +140,8 @@ def find_blobs(full_img, main_mask, background_flux, sub_aps):
     sp.run(["xpaset","-p","ds9","region","save","./_temp_subaps_autoap2.reg"])
     sub_aps = Regions.read('./_temp_subaps_autoap2.reg', format='ds9')
     sub_aps = [ap.to_pixel(wcs) for ap in sub_aps]
-    sub_aps[0].visual={"color":"red"}
+    for ap in sub_aps:
+        ap.visual={"color":"red"}
 
     # Close DS9
     sp.run(["xpaset","-p","ds9","exit"])
@@ -161,7 +162,7 @@ def find_blobs(full_img, main_mask, background_flux, sub_aps):
     return sub_aps
 
 
-def make_main_region(img_filename, ap_filename, icrs_coord):
+def make_main_region(img_filename, ap_filename, bg_ap_filename, icrs_coord):
 
     #####################
     # Set some stuff up #
@@ -249,6 +250,16 @@ def make_main_region(img_filename, ap_filename, icrs_coord):
     ####################################
     # Ask user for background location #
     ####################################
+
+    # Prompt user to keep old background location if applicable
+    try:
+        bg_ap_old = Regions.read(bg_ap_filename, format='ds9')[0]
+        print(' ')
+        curinp = input('Keep original background location? (Y/n) : ')
+        if curinp.lower() != "n":
+            return main_ap_sky, bg_ap_old
+    except FileNotFoundError:
+        pass
 
     print(' ')
     print('Click to select the center of a 10x10 background region; close window after final selection')

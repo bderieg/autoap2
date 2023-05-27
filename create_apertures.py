@@ -6,7 +6,7 @@ sys.path.insert(0, './param_files')
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.wcs import WCS
-from regions import Regions
+from regions import Regions, PixCoord
 from termcolor import colored
 import json
 
@@ -82,6 +82,7 @@ for target in target_names:
             # Open image
             img_path = workdir+target+"/fits/"+fltr+".fits"
             ap_path = workdir+target+"/apertures/"+fltr+".reg"
+            bg_ap_path = workdir+target+"/apertures/background"+fltr+".reg"
             try:
                 # Open
                 fitsfile = fits.open(img_path)
@@ -104,9 +105,12 @@ for target in target_names:
             main_ap_sky, bg_ap_pix = imf.make_main_region(
                     img_path,
                     ap_path,
+                    bg_ap_path,
                     gnd.get_coords(target)
                     )
             main_ap_pix = main_ap_sky.to_pixel(wcs)
+            if "SPIRE" in fltr:
+                bg_ap_pix.center = PixCoord(0.0,0.0)
 
             # Algorithmically determine subtraction apertures
             ## Get any preexisting subtraction apertures
