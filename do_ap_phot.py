@@ -136,7 +136,7 @@ def full_photometry(target_name):
         ## Integrate background flux
         background = integrate_flux(bg_cutout, 0.0) / (len(bg_cutout)-2)**2
         ### If background flux nan, just set to 0.0
-        if background != background:
+        if background != background or "ALMA" in fltr or "SPIRE" in fltr:
             background = 0.0
 
         # Get apertures from file
@@ -180,14 +180,18 @@ def full_photometry(target_name):
         for key in sed_data[target]["sed_flags"]:
             if fltr in key:
                 if 'u' in sed_data[target]["sed_flags"][key]:
-                    correction = 1.0
+                    beam_size_pix = 1.0
                     if "PACS" in fltr:
-                        correction = flux_conversion.beam_size[fltr](img_hdr)
-                    flux_final = correction * 4.5*np.sqrt(np.mean(pix_ap_cutouts[main_ind]**2))
+                        beam_size_pix = flux_conversion.beam_size[fltr](img_hdr)
+                    elif "SPIRE" in fltr:
+                        beam_size_pix = flux_conversion.beam_size[fltr](img_hdr) / flux_conversion.pix_size[fltr](img_hdr)
+                    else:
+                        beam_size_pix = 1.0
+                    flux_final = beam_size_pix * 4.5*np.sqrt(np.mean(pix_ap_cutouts[main_ind]**2)) - background*beam_size_pix
                     total_unc_upper = -1
                     total_unc_lower = 0
                 elif 'a' in sed_data[target]["sed_flags"][key]:
-                    flux_final = flux_conversion.beam_size[fltr](img_hdr) * 4.5*np.sqrt(np.mean(pix_ap_cutouts[main_ind]**2))
+                    flux_final = flux_conversion.beam_size[fltr](img_hdr) / flux_conversion.pix_size[fltr](img_hdr) * 4.5*np.sqrt(np.mean(pix_ap_cutouts[main_ind]**2))
                     total_unc_upper = -1
                     total_unc_lower = 0
 

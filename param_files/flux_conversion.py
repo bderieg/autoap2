@@ -152,7 +152,7 @@ brightness_conversion = {
 }
 
 beam_size = {
-    'ALMAExtended' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
+    'ALMAExtended' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),  # degrees^2
     'ALMAExtendedNat' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
     'ALMAExtendedBri' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
     'ALMAExtendedLowerNat' : lambda header : (4*np.log(2)/np.pi) * (header['BMIN']*header['BMAJ']),
@@ -172,7 +172,7 @@ beam_size = {
     'PACS160' : lambda header : (10.546*12.27)/(header['PIXSIZE']**2) if header['SCANVELO']==20.0 else (11.51*13.65)/(header['PIXSIZE']**2),  # pixels
     'SPIRE250' : lambda header : 446.75,  # arcsec^2
     'SPIRE350' : lambda header : 786.38,  # arcsec^2
-    'SPIRE500' : lambda header : 1630.96,  # arcsec^
+    'SPIRE500' : lambda header : 1630.96,  # arcsec^2
     'SDSS_u' : lambda header : 1,
     'SDSS_g' : lambda header : 1,
     'SDSS_r' : lambda header : 1,
