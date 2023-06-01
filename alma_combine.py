@@ -50,7 +50,7 @@ for target in target_names:
             lower_unc_nat = sed_data[target]['sed_unc_lower'][key]
     for key in extended_keys_nat:
         if "Upper" in key:
-            upper_unc_nat = (sed_data[target]['sed_flux'][key] - lower_flux_nat) + sed_data[target]['sed_unc_upper'][key]
+            upper_unc_nat = abs(sed_data[target]['sed_flux'][key] - lower_flux_nat) + sed_data[target]['sed_unc_upper'][key]
 
     # Get combined flux and uncertainty (Briggs weighting)
     lower_flux_bri = 0.0
@@ -62,7 +62,7 @@ for target in target_names:
             lower_unc_bri = sed_data[target]['sed_unc_lower'][key]
     for key in extended_keys_bri:
         if "Upper" in key:
-            upper_unc_bri = (sed_data[target]['sed_flux'][key] - lower_flux_bri) + sed_data[target]['sed_unc_upper'][key]
+            upper_unc_bri = abs(sed_data[target]['sed_flux'][key] - lower_flux_bri) + sed_data[target]['sed_unc_upper'][key]
 
     # Get combined flux and uncertainty (unknown weighting)
     lower_flux_other = 0.0
@@ -74,7 +74,7 @@ for target in target_names:
             lower_unc_other = sed_data[target]['sed_unc_lower'][key]
     for key in extended_keys_other:
         if "Upper" in key:
-            upper_unc_other = (sed_data[target]['sed_flux'][key] - lower_flux_other) + sed_data[target]['sed_unc_upper'][key]
+            upper_unc_other = abs(sed_data[target]['sed_flux'][key] - lower_flux_other) + sed_data[target]['sed_unc_upper'][key]
 
     # Make new extended keys
     try:
