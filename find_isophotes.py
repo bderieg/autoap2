@@ -13,15 +13,32 @@ from regions import Regions, PixCoord, EllipsePixelRegion
 
 import image_functions as imf
 
+###############################
+# Get user input for filepath #
+###############################
+
+# Prompt to change working directory
+print(' ')
+workdir = input("Enter working directory: ")
+if workdir[-1] != '/':
+    workdir += '/'
+
+# Prompt to specify target
+print(' ')
+target = input("Enter (as a comma-separated list) the desired targets : ")
+
 ###############
 # Import data #
 ###############
 
-# img_path = workdir+target+"/fits/"+fltr+".fits"
-img_path = '/home/ben/Desktop/research/research_boizelle_working/ap_phot_data/NGC4261/fits/W1.fits'
-# ap_path = workdir+target+"/apertures/"+fltr+".reg"
-ap_path = '/home/ben/Desktop/research/research_boizelle_working/ap_phot_data/NGC4261/apertures/W1.reg'
-bg_ap_path = '/home/ben/Desktop/research/research_boizelle_working/ap_phot_data/NGC4261/apertures/backgroundW1.reg'
+fltr = "W1"
+
+img_path = workdir+target+"/fits/"+fltr+".fits"
+# img_path = '/home/ben/Desktop/research/research_boizelle_working/ap_phot_data/NGC4261/fits/W1.fits'
+ap_path = workdir+target+"/apertures/"+fltr+".reg"
+# ap_path = '/home/ben/Desktop/research/research_boizelle_working/ap_phot_data/NGC4261/apertures/W1.reg'
+bg_ap_path = workdir+target+"/apertures/background"+fltr+".reg"
+# bg_ap_path = '/home/ben/Desktop/research/research_boizelle_working/ap_phot_data/NGC4261/apertures/backgroundW1.reg'
 
 # Open image
 try:
@@ -70,59 +87,47 @@ background = imf.integrate_flux(bg_cutout, 0.0) / (len(bg_cutout)-2)**2
 ### If background flux nan, just set to 0.0
 if background != background:
     background = 0.0
+img_sub = img - background
 
 # Get main flux
 total_flux = imf.integrate_flux(main_ap.to_pixel(wcs).to_mask().multiply(img), background)
+
+##########################
+# Find half-light radius #
+##########################
+
+hlap = main_ap.copy().to_pixel(wcs)
+relflux = 1.0
+while relflux >= 0.5:
+    hlap.width *= 0.99
+    hlap.height *= 0.99
+    relflux = imf.integrate_flux(hlap.to_mask().multiply(img), background) / total_flux
+hlrad = hlap.height
 
 ################
 # Fit isophote #
 ################
 
-# Initial guess (arbitrary)
-hlap = main_ap.copy()
-hlap.height /= 10
-hlap.width /= 10
-
 # Create fitting geometry
-hlap_pix = hlap.to_pixel(wcs)
 geom = EllipseGeometry(
-        x0=hlap_pix.center.xy[0],
-        y0=hlap_pix.center.xy[1],
-        sma=hlap_pix.height,
-        eps=1-hlap_pix.width/hlap_pix.height,
-        pa=hlap_pix.angle.value * np.pi/180
+        x0=hlap.center.xy[0],
+        y0=hlap.center.xy[1],
+        sma=2.5*hlap.height,
+        eps=2.5*(1-hlap.width/hlap.height),
+        pa=hlap.angle.value * np.pi/180
         )
 
 # Create fitting object and fit
-fitobj = Ellipse(img, geom)
-isofitlist = fitobj.fit_image()
+fitobj = Ellipse(img_sub, geom)
+isofit = fitobj.fit_isophote(sma=2.5*hlrad)
 
-isoaplist = []
-hlhit = False
-endhit = False
-hlrad = 1e9  # arbitrarily high initial value
-for ap in isofitlist:
-    try:
-        curap = EllipsePixelRegion(
-                        PixCoord(ap.x0, ap.y0),
-                        ap.sma,
-                        ap.sma * (1-ap.eps),
-                        angle=ap.pa * 180/np.pi * u.deg,
-                        visual={'edgecolor':'white'}
-                    )
-        relflux = imf.integrate_flux(curap.to_mask().multiply(img), background) / total_flux
-        if relflux >= 0.5 and hlhit is False:
-            hlrad = curap.width
-            curap.visual['edgecolor'] = 'orange'
-            hlhit = True
-        if curap.width >= 2.5*hlrad and hlhit and endhit is False:
-            curap.visual['edgecolor'] = 'red'
-            endhit = True
-        isoaplist.append(curap)
-    except ValueError:
-        continue
-    except TypeError:
-        continue
+isofitap = EllipsePixelRegion(
+                PixCoord(isofit.x0, isofit.y0),
+                isofit.sma,
+                isofit.sma * (1-isofit.eps),
+                angle=isofit.pa * 180/np.pi * u.deg,
+                visual={'edgecolor':'red'}
+            )
 
 ##############
 # Show image #
@@ -133,9 +138,9 @@ cm = plt.get_cmap('cividis').copy()
 if np.amax(img) > 1.0:
     cm.set_under('black')
     cm.set_over('black')
-    ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
+    ax.imshow(img_sub, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
 else:
-    ax.imshow(img, cmap=cm)
-for ap in isoaplist:
-    ap.plot()
+    ax.imshow(img_sub, cmap=cm)
+main_ap.to_pixel(wcs).plot()
+isofitap.plot()
 plt.show()

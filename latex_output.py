@@ -27,6 +27,13 @@ prefixes = [
         "MCG",
         "WISEA"
         ]
+targets_trunc = {
+        "WISEAJ090330.81-010612.3" : "WISEA J090",
+        "WISEAJ130100.81+270131.4" : "WISEA J130",
+        "WISEAJ133333.03+261619.4" : "WISEA J133",
+        "WISEAJ141611.82+015205.1" : "WISEA J141"
+        }
+
 
 # Define rounding function
 def round_to_n(x,n=3):
@@ -65,30 +72,53 @@ with open(outputfile_loc,"w") as f:
     for target in sorted(sed_data):
         target_ms = ""
         pred = False
-        for p in prefixes:
-            if p in target:
-                pred = True
-                target_ms += "\\text{"+re.sub(r'('+p+')', r'\1 ', target)+"} &"
-                break
-        if pred is False:
-            target_ms += "\\text{"+target+"} &"
+        if target in targets_trunc:
+            target_ms += "\\text{"+targets_trunc[target]+"}\\footnote{"+target+"} &"
+        else:
+            for p in prefixes:
+                if p in target:
+                    pred = True
+                    target_ms += "\\text{"+re.sub(r'('+p+')', r'\1 ', target)+"} &"
+                    break
+            if pred is False:
+                target_ms += "\\text{"+target+"} &"
+
+        almaband = 0
+        almakeylist = [key for key in sed_data[target]["sed_freq"] if "ALMA" in key]
+        almakey = ""
+        if len(almakeylist) > 0:
+            almakey = almakeylist[0]
+            almafreq = sed_data[target]["sed_freq"][almakey]
+            if almafreq > 84e9 and almafreq < 116e9:
+                almaband = 3
+            elif almafreq > 125e9 and almafreq < 163e9:
+                almaband = 4
+            elif almafreq > 163e9 and almafreq < 211e9:
+                almaband = 5
+            elif almafreq > 211e9 and almafreq < 275e9:
+                almaband = 6
+            elif almafreq > 275e9 and almafreq < 373e9:
+                almaband = 7
+            elif almafreq > 385e9 and almafreq < 500e9:
+                almaband = 8
+            elif almafreq > 602e9 and almafreq < 720e9:
+                almaband = 9
+            elif almafreq > 787e9 and almafreq < 950e9:
+                almaband = 10
+        else:
+            almaband = "\\nodata"
+
+        target_ms += " " + str(almaband) + " &"
+
         for band in band_contains:
             contains = False
             for key in sed_data[target]["sed_flux"]:
                 if band in key:
 
-                    footnote = ""
-                    if "ALMA" in key:
-                        freq = sed_data[target]["sed_freq"][key]
-                        if is_close(230e9,freq):
-                            footnote = "^{\\text{\\textasteriskcentered}}"
-                        elif is_close(350e9,freq):
-                            footnote = "^{\\text{\\textdagger}}"
-
-                    flux = str(round_to_n(sed_data[target]["sed_flux"][key]))
+                    flux = "{:f}".format(round_to_n(sed_data[target]["sed_flux"][key])).rstrip('0').rstrip('.')
                     unc = ""
-                    unc_upper = str(round_to_n(sed_data[target]["sed_unc_upper"][key],n=2))
-                    unc_lower = str(round_to_n(sed_data[target]["sed_unc_lower"][key],n=2))
+                    unc_upper = "{:f}".format(round_to_n(sed_data[target]["sed_unc_upper"][key],n=2)).rstrip('0').rstrip('.')
+                    unc_lower = "{:f}".format(round_to_n(sed_data[target]["sed_unc_lower"][key],n=2)).rstrip('0').rstrip('.')
                     if unc_upper == unc_lower:
                         unc = unc_upper
                     else:
@@ -97,13 +127,13 @@ with open(outputfile_loc,"w") as f:
                         target_ms += " $<"+flux+"$ &"
                     else:
                         if "+" in unc:
-                            target_ms += " $"+flux+" ("+unc+")"+footnote+"$ &"
+                            target_ms += " $"+flux+" ("+unc+")$ &"
                         elif not is_close(float(unc),0.1*float(flux)) and ("SPIRE" in key or "ALMA" in key):
-                            target_ms += " $"+flux+" ("+unc+")"+footnote+"$ &"
+                            target_ms += " $"+flux+" ("+unc+")$ &"
                         elif not is_close(float(unc),0.07*float(flux)) and "PACS" in key:
-                            target_ms += " $"+flux+" ("+unc+")"+footnote+"$ &"
+                            target_ms += " $"+flux+" ("+unc+")$ &"
                         else:
-                            target_ms += " $"+flux+footnote+"$ &"
+                            target_ms += " $"+flux+"$ &"
                     contains = True
                     break
             if contains is False:
