@@ -13,6 +13,8 @@ from regions import Regions, PixCoord, EllipsePixelRegion
 
 import image_functions as imf
 
+import logging
+
 ###############################
 # Get user input for filepath #
 ###############################
@@ -25,7 +27,7 @@ if workdir[-1] != '/':
 
 # Prompt to specify target
 print(' ')
-target = input("Enter (as a comma-separated list) the desired targets : ")
+target = input("Enter the desired target : ")
 
 ###############
 # Import data #
@@ -102,7 +104,7 @@ while relflux >= 0.5:
     hlap.width *= 0.99
     hlap.height *= 0.99
     relflux = imf.integrate_flux(hlap.to_mask().multiply(img), background) / total_flux
-hlrad = hlap.height
+hlrad = hlap.width
 
 ################
 # Fit isophote #
@@ -112,22 +114,31 @@ hlrad = hlap.height
 geom = EllipseGeometry(
         x0=hlap.center.xy[0],
         y0=hlap.center.xy[1],
-        sma=2.5*hlap.height,
-        eps=2.5*(1-hlap.width/hlap.height),
+        sma=hlap.width,
+        eps=(1-hlap.height/hlap.width),
         pa=hlap.angle.value * np.pi/180
         )
 
-# Create fitting object and fit
+# Create a bunch of isophotes
 fitobj = Ellipse(img_sub, geom)
-isofit = fitobj.fit_isophote(sma=2.5*hlrad)
+isofitlist = fitobj.fit_image(sma0=1.5*hlrad, minsma=hlrad, step=0.4*hlrad, linear=True, conver=1e-3, nclip=12, sclip=5.0)
 
-isofitap = EllipsePixelRegion(
-                PixCoord(isofit.x0, isofit.y0),
-                isofit.sma,
-                isofit.sma * (1-isofit.eps),
-                angle=isofit.pa * 180/np.pi * u.deg,
-                visual={'edgecolor':'red'}
-            )
+isoaplist = []
+for aa in isofitlist:
+    try:
+        apcolor = 'white'
+        if aa.sma/hlrad > 2.5 and aa.sma/hlrad < 3.0:
+            apcolor = 'red'
+        isoaplist.append(EllipsePixelRegion(
+                        PixCoord(aa.x0, aa.y0),
+                        aa.sma,
+                        aa.sma * (1-aa.eps),
+                        angle=aa.pa * 180/np.pi * u.deg,
+                        visual={'edgecolor':apcolor}
+                    ))
+        print(aa.sma/hlrad)
+    except ValueError:
+        continue
 
 ##############
 # Show image #
@@ -135,12 +146,13 @@ isofitap = EllipsePixelRegion(
 
 fig,ax = plt.subplots()
 cm = plt.get_cmap('cividis').copy()
-if np.amax(img) > 1.0:
+if np.amax(img) > 0.1:
     cm.set_under('black')
     cm.set_over('black')
-    ax.imshow(img_sub, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=1))
+    ax.imshow(img_sub, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=0.1))
 else:
-    ax.imshow(img_sub, cmap=cm)
-main_ap.to_pixel(wcs).plot()
-isofitap.plot()
+    ax.imshow(img, cmap=cm)
+# main_ap.to_pixel(wcs).plot()
+for aa in isoaplist:
+    aa.plot()
 plt.show()
