@@ -134,7 +134,10 @@ def full_photometry(target_name):
         ## Get background cutout
         bg_cutout = (bg_ap.to_mask()).multiply(img)
         ## Integrate background flux
-        background = integrate_flux(bg_cutout, 0.0) / (len(bg_cutout)-2)**2
+        try:
+            background = integrate_flux(bg_cutout, 0.0) / np.count_nonzero(bg_cutout)
+        except ZeroDivisionError:
+            background = 0.0
         ### If background flux nan, just set to 0.0
         if background != background or "ALMA" in fltr or "SPIRE" in fltr:
             background = 0.0
