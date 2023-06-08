@@ -10,8 +10,10 @@ from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.units as u
 from regions import Regions, PixCoord, EllipsePixelRegion
+import json
 
 import image_functions as imf
+import get_ned_data as gnd
 
 import logging
 
@@ -24,6 +26,7 @@ print(' ')
 workdir = input("Enter working directory: ")
 if workdir[-1] != '/':
     workdir += '/'
+pa_data_loc = workdir + 'pa_data.json'
 
 # Prompt to specify target
 print(' ')
@@ -36,11 +39,8 @@ target = input("Enter the desired target : ")
 fltr = "W1"
 
 img_path = workdir+target+"/fits/"+fltr+".fits"
-# img_path = '/home/ben/Desktop/research/research_boizelle_working/ap_phot_data/NGC4261/fits/W1.fits'
 ap_path = workdir+target+"/apertures/"+fltr+".reg"
-# ap_path = '/home/ben/Desktop/research/research_boizelle_working/ap_phot_data/NGC4261/apertures/W1.reg'
 bg_ap_path = workdir+target+"/apertures/background"+fltr+".reg"
-# bg_ap_path = '/home/ben/Desktop/research/research_boizelle_working/ap_phot_data/NGC4261/apertures/backgroundW1.reg'
 
 # Open image
 try:
@@ -112,17 +112,30 @@ hlrad = hlap.width
 
 # Create fitting geometry
 geom = EllipseGeometry(
-        x0=hlap.center.xy[0],
-        y0=hlap.center.xy[1],
-        sma=hlap.width,
-        eps=(1-hlap.height/hlap.width),
-        pa=hlap.angle.value * np.pi/180
+            x0=hlap.center.xy[0],
+            y0=hlap.center.xy[1],
+            sma=1.5*hlap.width,
+            eps=(1-hlap.height/hlap.width),
+            pa=hlap.angle.value * np.pi/180
         )
 
-# Create a bunch of isophotes
+# Fit
 fitobj = Ellipse(img_sub, geom)
-isofitlist = fitobj.fit_image(sma0=1.5*hlrad, minsma=hlrad, step=0.4*hlrad, linear=True, conver=1e-3, nclip=12, sclip=5.0)
+isofitlist = fitobj.fit_image(
+                    sma0=hlrad, 
+                    minsma=0.4*hlrad, 
+                    maxsma=3.5*hlrad, 
+                    step=0.48*hlrad, 
+                    linear=True, 
+                    conver=1e-3, 
+                    minit=20,
+                    nclip=12, 
+                    sclip=3.0,
+                    maxgerr=2.0, 
+                    fflag=0.1 
+                )
 
+# Save as apertures
 isoaplist = []
 for aa in isofitlist:
     try:
@@ -136,9 +149,28 @@ for aa in isofitlist:
                         angle=aa.pa * 180/np.pi * u.deg,
                         visual={'edgecolor':apcolor}
                     ))
-        print(aa.sma/hlrad)
     except ValueError:
         continue
+
+################
+# Save PA data #
+################
+
+# Open the existing data
+pa_data = {}
+try:
+    pa_data = json.load(open(pa_data_loc))
+except FileNotFoundError:
+    print("\nSED data file not found ... creating a new one here")
+    pass
+
+# Get PA from ellipse fit
+avg_pa = np.mean([aa.angle.value for aa in isoaplist if aa.visual['edgecolor']=='red'])
+pa_data[target] = avg_pa
+
+# Write
+pa_outfile = open(pa_data_loc, 'w')
+json.dump(pa_data, pa_outfile, indent=5)
 
 ##############
 # Show image #
@@ -149,10 +181,13 @@ cm = plt.get_cmap('cividis').copy()
 if np.amax(img) > 0.1:
     cm.set_under('black')
     cm.set_over('black')
-    ax.imshow(img_sub, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=0.1))
+    ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=0.1))
 else:
     ax.imshow(img, cmap=cm)
-# main_ap.to_pixel(wcs).plot()
-for aa in isoaplist:
+main_ap.to_pixel(wcs).plot()
+for aa in [jeff for jeff in isoaplist if jeff.visual['edgecolor']=='red']:
     aa.plot()
+for aa in [jeff for jeff in isoaplist if jeff.visual['edgecolor']=='white']:
+    aa.plot()
+plt.legend(['Integration Region','Isophote used for PA','Other Isophote'])
 plt.show()
