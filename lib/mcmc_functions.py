@@ -1,7 +1,10 @@
 import numpy as np
 import emcee
 import corner
+import pickle
+import base64
 import matplotlib.pyplot as plt
+import scipy.interpolate as scp
 
 import physical_functions as pf
 
@@ -23,10 +26,22 @@ def mcmc_full_run(freq, flux, fluxerr, fitparams, priors, nwalkers, niter):
     samples = sampler.flatchain
     theta_max = samples[np.argmax(sampler.flatlnprobability)].copy()
     draw = np.floor(np.random.uniform(0,len(samples),size=200)).astype(int)
+    
+    theta_dist = samples[draw]
 
-    mass_spread = np.std(samples[draw][:,0],axis=0)
-    temp_spread = np.std(samples[draw][:,1],axis=0)
-    beta_spread = np.std(samples[draw][:,2],axis=0)
+    mass_spread = np.std(theta_dist[:,0],axis=0)
+    temp_spread = np.std(theta_dist[:,1],axis=0)
+    beta_spread = np.std(theta_dist[:,2],axis=0)
+
+    basis = np.logspace(9, 14, num=500)
+    models = []
+    for itr in theta_dist:
+        models.append(pf.mb_model(np.append(itr,fitparams['distance']), 1e-9*basis))
+
+    model_spread = np.std(models,axis=0)
+    model_median = np.median(models,axis=0)
+
+    pos_dist_enc = base64.b64encode(pickle.dumps(np.array([basis,model_median,model_spread]))).decode('utf-8')
 
     fig = corner.corner(
             samples, 
@@ -47,7 +62,8 @@ def mcmc_full_run(freq, flux, fluxerr, fitparams, priors, nwalkers, niter):
             "temp" : theta_max[1],
             "temp_spread" : temp_spread,
             "beta" : theta_max[2],
-            "beta_spread" : beta_spread
+            "beta_spread" : beta_spread,
+            "posterior_spread_obj" : pos_dist_enc
             }
 
 

@@ -5,6 +5,8 @@ sys.path.insert(0, './lib')
 import pandas as pd
 import numpy as np
 import json
+import pickle
+import base64
 import astropy.units as u
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, LogLocator
@@ -110,6 +112,7 @@ for target in target_names:
                     fitparams[key]['temperature'] = fits[target][key]['temperature']
                     fitparams[key]['beta'] = fits[target][key]['beta']
                     fitparams[key]['distance'] = fits[target][key]['distance']
+                    fitparams[key]['posterior_spread_obj'] = fits[target][key]['posterior_spread_obj']
         except KeyError:
             pass
         # Make unique legend list
@@ -130,22 +133,39 @@ for target in target_names:
                 ax.errorbar(xval, yval, yerr=[[unc_lower],[unc_upper]], fmt='none', ecolor='black', capsize=0.0, zorder=0)
         # Plot fits
         try:
+            # Define a frequency array
             basis = np.logspace(np.log10(min(sed_data_arr[0,:])), np.log10(max(sed_data_arr[0,:])), num=500)
+            # Define an empty total curve to plot over everything
             total_curve = np.zeros_like(basis)
+            # Plot all existing fits
             for key in fitparams:
                 if "mb" in key:
+                    # Plot mpfit curve
                     fitted_curve = pf.mb_model(
                             [
                                 fitparams[key]['mass'],
                                 fitparams[key]['temperature'],
                                 fitparams[key]['beta'],
                                 fitparams[key]['distance']
-                                ], 
+                            ], 
                             x=1e-9*basis
                             )
                     ax.plot(basis, fitted_curve, c='maroon', ls='dashdot', label='modified blackbody')
+                    # Plot emcee posterior distribution
+                    pso = pickle.loads(
+                            base64.b64decode(fitparams[key]['posterior_spread_obj'].encode('utf-8'))
+                        )
+                    ax.fill_between(
+                                pso[0], 
+                                pso[1]-pso[2], 
+                                pso[1]+pso[2], 
+                                color='grey', alpha=0.5, label='1$\sigma$ Posterior Spread'
+                            )
+                # Update the total curve
                 total_curve += fitted_curve
+            # Overplot the sum of all fits
             ax.plot(basis, total_curve, c='black', ls='solid', label='total emission')
+        # If no fits exist
         except KeyError:
             pass
         # Set other plot parameters

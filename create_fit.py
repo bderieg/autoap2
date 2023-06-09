@@ -224,7 +224,8 @@ target_fit[target]["mb"] = {
                 "beta_emcee" : emcee_params['beta'],
                 "beta_unc" : mbfit.perror[2],
                 "beta_unc_emcee" : emcee_params['beta_spread'],
-                "distance" : mbfit.params[3]
+                "distance" : mbfit.params[3],
+                "posterior_spread_obj" : emcee_params['posterior_spread_obj']
             }
 
 # Write
