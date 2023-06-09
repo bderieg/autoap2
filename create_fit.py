@@ -10,7 +10,26 @@ import pandas as pd
 
 import physical_functions as pf
 from read_params import read_params as rp
+import mcmc_functions as mcmcf
 import mpfit
+
+# Define some constants
+
+fit_params = {
+        'mb_mass' : 1e6,
+        'mb_mass_uplim' : 1e20,
+        'mb_mass_lolim' : 1.0,
+        'mb_mass_hold' : False,
+        'mb_temp' : 25,
+        'mb_temp_uplim' : 25.0,
+        'mb_temp_lolim' : 0.0,
+        'mb_temp_hold' : False,
+        'mb_beta' : 2.0,
+        'mb_beta_uplim' : 16.0,
+        'mb_beta_lolim' : 0.0,
+        'mb_beta_hold' : False,
+        'verbose' : 0
+        }
 
 
 ###############################
@@ -44,11 +63,18 @@ target = input("Enter the desired target : ")
 
 # Import fit parameters file
 try:
-    fit_params = rp(workdir+target+'/sed_fit.param')
+    fit_params |= rp(workdir+target+'/sed_fit.param')
 except FileNotFoundError:
     print(' ')
     print('fit parameters file not found . . . exiting')
     exit()
+for key in fit_params:
+    if "hold" in key:
+        if fit_params[key] == False:
+            fit_params[key] = 0
+        elif fit_params[key] == True:
+            fit_params[key] = 1
+assert 'points' in fit_params, "\'points\' keyword not specified in parameter file"
 
 # Import data, sort, and select
 sed_data = json.load(open(sed_data_loc))
@@ -73,6 +99,7 @@ unc_upper = [unc_upper[i] for i in points]
 unc_lower = [unc_lower[i] for i in points]
 tele_names = [tele_names[i] for i in points]
 
+print(' ')
 print("Fitting the following points:")
 for i in tele_names:
     print("\t"+i)
@@ -82,6 +109,9 @@ for i in tele_names:
 # Fit data #
 ############
 ############
+
+if fit_params['verbose'] >= 1:
+    quiet = False
 
 #######################
 # Fit radio power law #
@@ -98,10 +128,29 @@ pv = [
         fit_params['mb_beta'], 
         galaxy_properties.loc[target,'D_L (Mpc)']
     ]
+p_fixed = [
+        fit_params['mb_mass_hold'], 
+        fit_params['mb_temp_hold'], 
+        fit_params['mb_beta_hold'], 
+        True
+    ]
+p_ltd = [
+        [1,1],
+        [1,1],
+        [1,1],
+        [0,0]
+    ]
+p_lims = [
+        [fit_params['mb_mass_lolim'],fit_params['mb_mass_uplim']], 
+        [fit_params['mb_temp_lolim'],fit_params['mb_temp_uplim']], 
+        [fit_params['mb_beta_lolim'],fit_params['mb_beta_uplim']], 
+        [0.,0.]
+    ]
 parinfo = [
-                {'value':p, 'fixed':0, 'limited':[0,0], 'limits':[0.,0.]} 
-            for p,itr in zip(pv,range(len(pv)))
+                {'value':p, 'fixed':pf, 'limited':pd, 'limits':pl} 
+            for p,pf,pd,pl in zip(pv,p_fixed,p_ltd,p_lims)
         ]
+quiet = True
 mbfit = mpfit.mpfit(
                     pf.mb_fit, 
                     functkw={
@@ -109,14 +158,42 @@ mbfit = mpfit.mpfit(
                         'y':np.array(flux), 
                         'err':np.array([(hi+lo)/2 for hi,lo in zip(unc_upper,unc_lower)])
                         }, 
-                    parinfo=parinfo
+                    parinfo=parinfo,
+                    quiet=quiet
                 )
 
 #########################
 # Fit stellar power law #
 #########################
 
-exit()
+
+##################
+##################
+# Emcee analysis #
+##################
+##################
+
+emcee_params = mcmcf.mcmc_full_run(
+            np.array(freq), 
+            np.array(flux), 
+            np.array([(hi+lo)/2 for hi,lo in zip(unc_upper,unc_lower)]), 
+            {
+                "mb_mass" : mbfit.params[0],
+                "mb_temp" : mbfit.params[1],
+                "mb_beta" : mbfit.params[2],
+                "distance" : mbfit.params[3]
+            },
+            {
+                "mb_mass_lolim" : fit_params["mb_mass_lolim"],
+                "mb_mass_uplim" : fit_params["mb_mass_uplim"],
+                "mb_temp_lolim" : fit_params["mb_temp_lolim"],
+                "mb_temp_uplim" : fit_params["mb_temp_uplim"],
+                "mb_beta_lolim" : fit_params["mb_beta_lolim"],
+                "mb_beta_uplim" : fit_params["mb_beta_uplim"]
+            },
+            200, 
+            1000
+        )
 
 #####################
 #####################
@@ -124,37 +201,31 @@ exit()
 #####################
 #####################
 
+# Open existing data file
+target_fit = {}
+try:
+    target_fit = json.load(open(fit_data_loc))
+except FileNotFoundError:
+    print(' ')
+    print("fit data file not found . . . creating a new one here")
+
 # Populate with new values
-if fitfunc.lower() == "mb":
-    itr = 0
-    try:
-        target_fit[target]["mb "+str(itr)] = {
-                        "mass" : result.params['mass'].value*u.kg.to(u.solMass),
-                        "mass_unc" : result.params['mass'].stderr*u.kg.to(u.solMass),
-                        "temperature" : result.params['temperature'].value,
-                        "temperature_unc" : result.params['temperature'].stderr,
-                        "beta" : result.params['beta'].value,
-                        "beta_unc" : result.params['beta'].stderr
-                    }
-    except TypeError:
-        target_fit[target]["mb "+str(itr)] = {
-                        "mass" : result.params['mass'].value*u.kg.to(u.solMass),
-                        "mass_unc" : np.nan,
-                        "temperature" : result.params['temperature'].value,
-                        "temperature_unc" : result.params['temperature'].stderr,
-                        "beta" : result.params['beta'].value,
-                        "beta_unc" : result.params['beta'].stderr
-                    }
-elif fitfunc.lower() == "pow":
-    itr = 0
-    while "pow "+str(itr) in target_fit[target]:
-        itr += 1
-    target_fit[target]["pow "+str(itr)] = {
-                    "alpha" : result.params['alpha'].value,
-                    "alpha_unc" : result.params['alpha'].stderr,
-                    "b" : result.params['b'].value,
-                    "b_unc" : result.params['b'].stderr
-                }
+target_fit[target] = {}
+target_fit[target]["mb"] = {
+                "mass" : mbfit.params[0],
+                "mass_emcee" : emcee_params['mass'],
+                "mass_unc" : mbfit.perror[0],
+                "mass_unc_emcee" : emcee_params['mass_spread'],
+                "temperature" : mbfit.params[1],
+                "temperature_emcee" : emcee_params['temp'],
+                "temperature_unc" : mbfit.perror[1],
+                "temperature_unc_emcee" : emcee_params['temp_spread'],
+                "beta" : mbfit.params[2],
+                "beta_emcee" : emcee_params['beta'],
+                "beta_unc" : mbfit.perror[2],
+                "beta_unc_emcee" : emcee_params['beta_spread'],
+                "distance" : mbfit.params[3]
+            }
 
 # Write
 fit_outfile = open(fit_data_loc, 'w')

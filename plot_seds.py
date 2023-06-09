@@ -106,13 +106,10 @@ for target in target_names:
             for key in fits[target]:
                 fitparams[key] = {}
                 if "mb" in key:
-                    fitparams[key]['mass'] = fits[target][key]['mass']*u.solMass.to(u.kg)
+                    fitparams[key]['mass'] = fits[target][key]['mass']
                     fitparams[key]['temperature'] = fits[target][key]['temperature']
                     fitparams[key]['beta'] = fits[target][key]['beta']
-                    fitparams[key]['distance'] = galaxy_properties['D_L (Mpc)'][target.replace(" ","")]*u.Mpc.to(u.m)
-                elif "pow" in key:
-                    fitparams[key]['b'] = fits[target][key]['b']
-                    fitparams[key]['alpha'] = fits[target][key]['alpha']
+                    fitparams[key]['distance'] = fits[target][key]['distance']
         except KeyError:
             pass
         # Make unique legend list
@@ -137,11 +134,16 @@ for target in target_names:
             total_curve = np.zeros_like(basis)
             for key in fitparams:
                 if "mb" in key:
-                    fitted_curve = pf.mb_basic(fitparams[key], basis)
+                    fitted_curve = pf.mb_model(
+                            [
+                                fitparams[key]['mass'],
+                                fitparams[key]['temperature'],
+                                fitparams[key]['beta'],
+                                fitparams[key]['distance']
+                                ], 
+                            x=1e-9*basis
+                            )
                     ax.plot(basis, fitted_curve, c='maroon', ls='dashdot', label='modified blackbody')
-                elif "pow" in key:
-                    fitted_curve = pf.powerlaw_basic(fitparams[key], basis)
-                    ax.plot(basis, fitted_curve, c='darkblue', ls='dashdot', label='power law')
                 total_curve += fitted_curve
             ax.plot(basis, total_curve, c='black', ls='solid', label='total emission')
         except KeyError:
