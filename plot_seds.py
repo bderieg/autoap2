@@ -113,6 +113,9 @@ for target in target_names:
                     fitparams[key]['beta'] = fits[target][key]['beta']
                     fitparams[key]['distance'] = fits[target][key]['distance']
                     fitparams[key]['posterior_spread_obj'] = fits[target][key]['posterior_spread_obj']
+                elif "radio" in key:
+                    fitparams[key]['radio_slope'] = fits[target][key]['slope']
+                    fitparams[key]['radio_coef'] = fits[target][key]['coef']
         except KeyError:
             pass
         # Make unique legend list
@@ -161,6 +164,14 @@ for target in target_names:
                                 pso[1]+pso[2], 
                                 color='grey', alpha=0.5, label='1$\sigma$ Posterior Spread'
                             )
+                elif "radio" in key:
+                    # Plot fitted curve
+                    fitted_curve = pf.pl_model(
+                            1e-9*basis,
+                            fitparams[key]['radio_slope'],
+                            fitparams[key]['radio_coef']
+                            )
+                    ax.plot(basis, fitted_curve, c='blue', ls='dashed', label='power law')
                 # Update the total curve
                 total_curve += fitted_curve
             # Overplot the sum of all fits

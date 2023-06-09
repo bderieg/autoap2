@@ -19,3 +19,6 @@ def mb_fit(p, fjac=None, x=None, y=None, err=None):
     status = 0
 
     return [status, (y-model)/err]
+
+def pl_model(nu, a, s0):
+    return s0 * nu**a

@@ -5,6 +5,7 @@ sys.path.insert(0, './lib')
 import lmfit
 import numpy as np
 import json
+from scipy import optimize as scop
 import astropy.units as u
 import pandas as pd
 
@@ -20,14 +21,22 @@ fit_params = {
         'mb_mass_uplim' : 1e20,
         'mb_mass_lolim' : 1.0,
         'mb_mass_hold' : False,
-        'mb_temp' : 25,
-        'mb_temp_uplim' : 25.0,
+        'mb_temp' : 25.0,
+        'mb_temp_uplim' : 50.0,
         'mb_temp_lolim' : 0.0,
         'mb_temp_hold' : False,
         'mb_beta' : 2.0,
         'mb_beta_uplim' : 16.0,
         'mb_beta_lolim' : 0.0,
         'mb_beta_hold' : False,
+        'radio_slope' : 0.1,
+        'radio_slope_uplim' : 20.0,
+        'radio_slope_lolim' : -20.0,
+        'radio_slope_hold' : False,
+        'radio_coef' : -7,
+        'radio_coef_uplim' : 20.0,
+        'radio_coef_lolim' : -20.0,
+        'radio_coef_hold' : False,
         'verbose' : 0
         }
 
@@ -63,7 +72,8 @@ target = input("Enter the desired target : ")
 
 # Import fit parameters file
 try:
-    fit_params |= rp(workdir+target+'/sed_fit.param')
+    user_params = rp(workdir+target+'/sed_fit.param')
+    fit_params |= user_params
 except FileNotFoundError:
     print(' ')
     print('fit parameters file not found . . . exiting')
@@ -74,7 +84,11 @@ for key in fit_params:
             fit_params[key] = 0
         elif fit_params[key] == True:
             fit_params[key] = 1
-assert 'points' in fit_params, "\'points\' keyword not specified in parameter file"
+## Check for mandatory keys
+if np.any(np.array([True if 'mb' in key else False for key in user_params])):
+    assert 'mb_points' in fit_params, "\'mb_points\' keyword not specified in parameter file"
+if np.any(np.array([True if 'radio' in key else False for key in user_params])):
+    assert 'radio_points' in fit_params, "\'radio_points\' keyword not specified in parameter file"
 
 # Import data, sort, and select
 sed_data = json.load(open(sed_data_loc))
@@ -92,17 +106,33 @@ unc_upper = unc_upper[sort_ind]
 unc_lower = unc_lower[sort_ind]
 tele_names = tele_names[sort_ind]
 
-points = fit_params['points']
-freq = [1e-9*freq[i] for i in points]  # Also convert to GHz
-flux = [flux[i] for i in points]
-unc_upper = [unc_upper[i] for i in points]
-unc_lower = [unc_lower[i] for i in points]
-tele_names = [tele_names[i] for i in points]
+## For radio fit
+if 'radio_points' in fit_params:
+    radio_points = fit_params['radio_points']
+    radio_freq = [1e-9*freq[i] for i in radio_points]  # Also convert to GHz
+    radio_flux = [flux[i] for i in radio_points]
+    radio_unc_upper = [unc_upper[i] for i in radio_points]
+    radio_unc_lower = [unc_lower[i] for i in radio_points]
+    radio_tele_names = [tele_names[i] for i in radio_points]
 
-print(' ')
-print("Fitting the following points:")
-for i in tele_names:
-    print("\t"+i)
+    print(' ')
+    print("Fitting the following points as a radio power law:")
+    for i in radio_tele_names:
+        print("\t"+i)
+
+## For mb fit
+if 'mb_points' in fit_params:
+    mb_points = fit_params['mb_points']
+    mb_freq = [1e-9*freq[i] for i in mb_points]  # Also convert to GHz
+    mb_flux = [flux[i] for i in mb_points]
+    mb_unc_upper = [unc_upper[i] for i in mb_points]
+    mb_unc_lower = [unc_lower[i] for i in mb_points]
+    mb_tele_names = [tele_names[i] for i in mb_points]
+
+    print(' ')
+    print("Fitting the following points as a modified blackbody:")
+    for i in mb_tele_names:
+        print("\t"+i)
 
 ############
 ############
@@ -110,6 +140,7 @@ for i in tele_names:
 ############
 ############
 
+quiet = True
 if fit_params['verbose'] >= 1:
     quiet = False
 
@@ -117,11 +148,39 @@ if fit_params['verbose'] >= 1:
 # Fit radio power law #
 #######################
 
+pv = [
+        fit_params['radio_slope'], 
+        fit_params['radio_coef']
+    ]
+p_fixed = [
+        fit_params['radio_slope_hold'], 
+        fit_params['radio_coef_hold']
+    ]
+p_ltd = [
+        [1,1],
+        [0,0]
+    ]
+p_lims = [
+        [fit_params['radio_slope_lolim'],fit_params['radio_slope_uplim']], 
+        [0.,0.]
+    ]
+parinfo = [
+                {'value':p, 'fixed':pf, 'limited':pd, 'limits':pl} 
+            for p,pf,pd,pl in zip(pv,p_fixed,p_ltd,p_lims)
+        ]
+radiofit = scop.curve_fit(
+                    pf.pl_model,
+                    np.array(radio_freq), 
+                    np.array(radio_flux), 
+                    p0=[fit_params['radio_slope'],fit_params['radio_coef']],
+                    sigma=np.array([(hi+lo)/2 for hi,lo in zip(radio_unc_upper,radio_unc_lower)]),
+                    maxfev=5000
+                )
+
 ##########################
 # Fit modified blackbody #
 ##########################
 
-# Create fitted object
 pv = [
         fit_params['mb_mass'], 
         fit_params['mb_temp'], 
@@ -150,13 +209,12 @@ parinfo = [
                 {'value':p, 'fixed':pf, 'limited':pd, 'limits':pl} 
             for p,pf,pd,pl in zip(pv,p_fixed,p_ltd,p_lims)
         ]
-quiet = True
 mbfit = mpfit.mpfit(
                     pf.mb_fit, 
                     functkw={
-                        'x':np.array(freq), 
-                        'y':np.array(flux), 
-                        'err':np.array([(hi+lo)/2 for hi,lo in zip(unc_upper,unc_lower)])
+                        'x':np.array(mb_freq), 
+                        'y':np.array(mb_flux), 
+                        'err':np.array([(hi+lo)/2 for hi,lo in zip(mb_unc_upper,mb_unc_lower)])
                         }, 
                     parinfo=parinfo,
                     quiet=quiet
@@ -174,9 +232,9 @@ mbfit = mpfit.mpfit(
 ##################
 
 emcee_params = mcmcf.mcmc_full_run(
-            np.array(freq), 
-            np.array(flux), 
-            np.array([(hi+lo)/2 for hi,lo in zip(unc_upper,unc_lower)]), 
+            np.array(mb_freq), 
+            np.array(mb_flux), 
+            np.array([(hi+lo)/2 for hi,lo in zip(mb_unc_upper,mb_unc_lower)]), 
             {
                 "mb_mass" : mbfit.params[0],
                 "mb_temp" : mbfit.params[1],
@@ -226,6 +284,10 @@ target_fit[target]["mb"] = {
                 "beta_unc_emcee" : emcee_params['beta_spread'],
                 "distance" : mbfit.params[3],
                 "posterior_spread_obj" : emcee_params['posterior_spread_obj']
+            }
+target_fit[target]["radio"] = {
+                "slope" : radiofit[0][0],
+                "coef" : radiofit[0][1]
             }
 
 # Write
