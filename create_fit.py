@@ -289,6 +289,9 @@ mcr_beta_unc = np.std(mcr_betas)
 ##################
 ##################
 
+holdvec = mbfit.params.copy()
+holdind = [fit_params['mb_mass_hold'], fit_params['mb_temp_hold'], fit_params['mb_beta_hold']]
+holdvec = [v if i else np.inf for v,i in zip(holdvec,holdind)]
 emcee_params = mcmcf.mcmc_full_run(
             np.array(mb_freq), 
             np.array(mb_flux), 
@@ -308,7 +311,8 @@ emcee_params = mcmcf.mcmc_full_run(
                 "mb_beta_uplim" : fit_params["mb_beta_uplim"]
             },
             200, 
-            1000
+            1000,
+            holdvec
         )
 
 #####################
