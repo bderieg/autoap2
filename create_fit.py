@@ -154,13 +154,13 @@ if 'stellar_points' in fit_params:
 ############
 ############
 
-quiet = True
-if fit_params['verbose'] >= 1:
-    quiet = False
-
 #######################
 # Fit radio power law #
 #######################
+
+if fit_params['verbose'] >= 1:
+    print(' ')
+    print("Scipy-fitting radio power law . . .")
 
 if 'radio_points' in fit_params:
     radiofit = scop.curve_fit(
@@ -186,6 +186,15 @@ if radiofit is not None:
 ##########################
 # Fit modified blackbody #
 ##########################
+
+if fit_params['verbose'] >= 1:
+    print(' ')
+    print("MPFITting modified blackbody . . .")
+
+quiet = True
+if fit_params['verbose'] >= 2:
+    print(' ')
+    quiet = False
 
 if 'mb_points' in fit_params:
     pv = [
@@ -233,6 +242,10 @@ else:
 # Fit stellar power law #
 #########################
 
+if fit_params['verbose'] >= 1:
+    print(' ')
+    print("Scipy-fitting stellar power law . . .")
+
 if 'stellar_points' in fit_params:
     stellarfit = scop.curve_fit(
                         pf.pl_model,
@@ -250,6 +263,10 @@ else:
 # Monte Carlo resampling #
 ##########################
 ##########################
+
+if fit_params['verbose'] >= 1:
+    print(' ')
+    print("Monte Carlo resampling the modified blackbody . . .")
 
 mcr_masses = []
 mcr_temps = []
@@ -271,7 +288,7 @@ for itr in range(500):
                             'err':np.array(mb_unc_comb)
                             }, 
                         parinfo=parinfo,
-                        quiet=quiet
+                        quiet=True
                     )
 
     # Update lists
@@ -288,6 +305,10 @@ mcr_beta_unc = np.std(mcr_betas)
 # Emcee analysis #
 ##################
 ##################
+
+if fit_params['verbose'] >= 1:
+    print(' ')
+    print("Running MCMC on the modified blackbody . . .")
 
 holdvec = mbfit.params.copy()
 holdind = [fit_params['mb_mass_hold'], fit_params['mb_temp_hold'], fit_params['mb_beta_hold']]
@@ -320,6 +341,10 @@ emcee_params = mcmcf.mcmc_full_run(
 # Write fit to file #
 #####################
 #####################
+
+if fit_params['verbose'] >= 1:
+    print(' ')
+    print("Writing fit data to file . . .")
 
 # Open existing data file
 target_fit = {}
