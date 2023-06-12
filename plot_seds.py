@@ -116,6 +116,9 @@ for target in target_names:
                 elif "radio" in key:
                     fitparams[key]['radio_slope'] = fits[target][key]['slope']
                     fitparams[key]['radio_coef'] = fits[target][key]['coef']
+                elif "stellar" in key:
+                    fitparams[key]['stellar_slope'] = fits[target][key]['slope']
+                    fitparams[key]['stellar_coef'] = fits[target][key]['coef']
         except KeyError:
             pass
         # Make unique legend list
@@ -172,6 +175,14 @@ for target in target_names:
                             fitparams[key]['radio_coef']
                             )
                     ax.plot(basis, fitted_curve, c='blue', ls='dashed', label='power law')
+                elif "stellar" in key:
+                    # Plot fitted curve
+                    fitted_curve = pf.pl_model(
+                            1e-9*basis,
+                            fitparams[key]['stellar_slope'],
+                            fitparams[key]['stellar_coef']
+                            )
+                    ax.plot(basis, fitted_curve, c='blue', ls='dashed')
                 # Update the total curve
                 total_curve += fitted_curve
             # Overplot the sum of all fits

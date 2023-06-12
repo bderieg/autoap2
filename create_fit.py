@@ -30,13 +30,13 @@ fit_params = {
         'mb_beta_lolim' : 0.0,
         'mb_beta_hold' : False,
         'radio_slope' : 0.1,
-        'radio_slope_uplim' : 20.0,
-        'radio_slope_lolim' : -20.0,
         'radio_slope_hold' : False,
         'radio_coef' : -7,
-        'radio_coef_uplim' : 20.0,
-        'radio_coef_lolim' : -20.0,
         'radio_coef_hold' : False,
+        'stellar_slope' : 0.1,
+        'stellar_slope_hold' : False,
+        'stellar_coef' : -7,
+        'stellar_coef_hold' : False,
         'verbose' : 0
         }
 
@@ -134,6 +134,20 @@ if 'mb_points' in fit_params:
     for i in mb_tele_names:
         print("\t"+i)
 
+## For stellar fit
+if 'stellar_points' in fit_params:
+    stellar_points = fit_params['stellar_points']
+    stellar_freq = [1e-9*freq[i] for i in stellar_points]  # Also convert to GHz
+    stellar_flux = [flux[i] for i in stellar_points]
+    stellar_unc_upper = [unc_upper[i] for i in stellar_points]
+    stellar_unc_lower = [unc_lower[i] for i in stellar_points]
+    stellar_tele_names = [tele_names[i] for i in stellar_points]
+
+    print(' ')
+    print("Fitting the following points as a stellar power law:")
+    for i in stellar_tele_names:
+        print("\t"+i)
+
 ############
 ############
 # Fit data #
@@ -148,82 +162,126 @@ if fit_params['verbose'] >= 1:
 # Fit radio power law #
 #######################
 
-pv = [
-        fit_params['radio_slope'], 
-        fit_params['radio_coef']
-    ]
-p_fixed = [
-        fit_params['radio_slope_hold'], 
-        fit_params['radio_coef_hold']
-    ]
-p_ltd = [
-        [1,1],
-        [0,0]
-    ]
-p_lims = [
-        [fit_params['radio_slope_lolim'],fit_params['radio_slope_uplim']], 
-        [0.,0.]
-    ]
-parinfo = [
-                {'value':p, 'fixed':pf, 'limited':pd, 'limits':pl} 
-            for p,pf,pd,pl in zip(pv,p_fixed,p_ltd,p_lims)
-        ]
-radiofit = scop.curve_fit(
-                    pf.pl_model,
-                    np.array(radio_freq), 
-                    np.array(radio_flux), 
-                    p0=[fit_params['radio_slope'],fit_params['radio_coef']],
-                    sigma=np.array([(hi+lo)/2 for hi,lo in zip(radio_unc_upper,radio_unc_lower)]),
-                    maxfev=5000
-                )
+if 'radio_points' in fit_params:
+    radiofit = scop.curve_fit(
+                        pf.pl_model,
+                        np.array(radio_freq), 
+                        np.array(radio_flux), 
+                        p0=[fit_params['radio_slope'],fit_params['radio_coef']],
+                        sigma=np.array([(hi+lo)/2 for hi,lo in zip(radio_unc_upper,radio_unc_lower)]),
+                        maxfev=5000
+                    )
+else:
+    radiofit = None
+
+########################################
+# Subtract power law from other points #
+########################################
+
+if radiofit is not None:
+    for itr in range(len(mb_flux)):
+        if mb_tele_names[itr] != "ALMA Extended":
+            mb_flux[itr] -= pf.pl_model(mb_freq[itr], radiofit[0][0], radiofit[0][1])
 
 ##########################
 # Fit modified blackbody #
 ##########################
 
-pv = [
-        fit_params['mb_mass'], 
-        fit_params['mb_temp'], 
-        fit_params['mb_beta'], 
-        galaxy_properties.loc[target,'D_L (Mpc)']
-    ]
-p_fixed = [
-        fit_params['mb_mass_hold'], 
-        fit_params['mb_temp_hold'], 
-        fit_params['mb_beta_hold'], 
-        True
-    ]
-p_ltd = [
-        [1,1],
-        [1,1],
-        [1,1],
-        [0,0]
-    ]
-p_lims = [
-        [fit_params['mb_mass_lolim'],fit_params['mb_mass_uplim']], 
-        [fit_params['mb_temp_lolim'],fit_params['mb_temp_uplim']], 
-        [fit_params['mb_beta_lolim'],fit_params['mb_beta_uplim']], 
-        [0.,0.]
-    ]
-parinfo = [
-                {'value':p, 'fixed':pf, 'limited':pd, 'limits':pl} 
-            for p,pf,pd,pl in zip(pv,p_fixed,p_ltd,p_lims)
+if 'mb_points' in fit_params:
+    pv = [
+            fit_params['mb_mass'], 
+            fit_params['mb_temp'], 
+            fit_params['mb_beta'], 
+            galaxy_properties.loc[target,'D_L (Mpc)']
         ]
-mbfit = mpfit.mpfit(
-                    pf.mb_fit, 
-                    functkw={
-                        'x':np.array(mb_freq), 
-                        'y':np.array(mb_flux), 
-                        'err':np.array([(hi+lo)/2 for hi,lo in zip(mb_unc_upper,mb_unc_lower)])
-                        }, 
-                    parinfo=parinfo,
-                    quiet=quiet
-                )
+    p_fixed = [
+            fit_params['mb_mass_hold'], 
+            fit_params['mb_temp_hold'], 
+            fit_params['mb_beta_hold'], 
+            True
+        ]
+    p_ltd = [
+            [1,1],
+            [1,1],
+            [1,1],
+            [0,0]
+        ]
+    p_lims = [
+            [fit_params['mb_mass_lolim'],fit_params['mb_mass_uplim']], 
+            [fit_params['mb_temp_lolim'],fit_params['mb_temp_uplim']], 
+            [fit_params['mb_beta_lolim'],fit_params['mb_beta_uplim']], 
+            [0.,0.]
+        ]
+    parinfo = [
+                    {'value':p, 'fixed':pf, 'limited':pd, 'limits':pl} 
+                for p,pf,pd,pl in zip(pv,p_fixed,p_ltd,p_lims)
+            ]
+    mbfit = mpfit.mpfit(
+                        pf.mb_fit, 
+                        functkw={
+                            'x':np.array(mb_freq), 
+                            'y':np.array(mb_flux), 
+                            'err':np.array([(hi+lo)/2 for hi,lo in zip(mb_unc_upper,mb_unc_lower)])
+                            }, 
+                        parinfo=parinfo,
+                        quiet=quiet
+                    )
+else:
+    mbfit = None
 
 #########################
 # Fit stellar power law #
 #########################
 
+if 'stellar_points' in fit_params:
+    stellarfit = scop.curve_fit(
+                        pf.pl_model,
+                        np.array(stellar_freq), 
+                        np.array(stellar_flux), 
+                        p0=[fit_params['stellar_slope'],fit_params['stellar_coef']],
+                        sigma=np.array([(hi+lo)/2 for hi,lo in zip(stellar_unc_upper,stellar_unc_lower)]),
+                        maxfev=5000
+                    )
+else:
+    stellarfit = None
+
+##########################
+##########################
+# Monte Carlo resampling #
+##########################
+##########################
+
+mcr_masses = []
+mcr_temps = []
+mcr_betas = []
+for itr in range(500):
+
+    # Vary fluxes
+    mb_unc_comb = [(hi+lo)/2 for hi,lo in zip(mb_unc_upper,mb_unc_lower)]
+    rand_flux = np.zeros(len(mb_flux))
+    for j in range(len(rand_flux)):
+        rand_flux[j] = np.random.normal(mb_flux[j], mb_unc_comb[j], 1)
+
+    # MPFIT on varied data
+    randfit = mpfit.mpfit(
+                        pf.mb_fit, 
+                        functkw={
+                            'x':np.array(mb_freq), 
+                            'y':np.array(rand_flux), 
+                            'err':np.array(mb_unc_comb)
+                            }, 
+                        parinfo=parinfo,
+                        quiet=quiet
+                    )
+
+    # Update lists
+    mcr_masses.append(randfit.params[0])
+    mcr_temps.append(randfit.params[1])
+    mcr_betas.append(randfit.params[2])
+
+mcr_mass_unc = np.std(mcr_masses)
+mcr_temp_unc = np.std(mcr_temps)
+mcr_beta_unc = np.std(mcr_betas)
 
 ##################
 ##################
@@ -269,26 +327,40 @@ except FileNotFoundError:
 
 # Populate with new values
 target_fit[target] = {}
-target_fit[target]["mb"] = {
-                "mass" : mbfit.params[0],
-                "mass_emcee" : emcee_params['mass'],
-                "mass_unc" : mbfit.perror[0],
-                "mass_unc_emcee" : emcee_params['mass_spread'],
-                "temperature" : mbfit.params[1],
-                "temperature_emcee" : emcee_params['temp'],
-                "temperature_unc" : mbfit.perror[1],
-                "temperature_unc_emcee" : emcee_params['temp_spread'],
-                "beta" : mbfit.params[2],
-                "beta_emcee" : emcee_params['beta'],
-                "beta_unc" : mbfit.perror[2],
-                "beta_unc_emcee" : emcee_params['beta_spread'],
-                "distance" : mbfit.params[3],
-                "posterior_spread_obj" : emcee_params['posterior_spread_obj']
-            }
-target_fit[target]["radio"] = {
-                "slope" : radiofit[0][0],
-                "coef" : radiofit[0][1]
-            }
+if mbfit is not None:
+    target_fit[target]["mb"] = {
+                    "mass" : mbfit.params[0],
+                    "mass_emcee" : emcee_params['mass'],
+                    "mass_unc" : mbfit.perror[0],
+                    "mass_unc_emcee" : emcee_params['mass_spread'],
+                    "mass_unc_mcr" : mcr_mass_unc,
+                    "temperature" : mbfit.params[1],
+                    "temperature_emcee" : emcee_params['temp'],
+                    "temperature_unc" : mbfit.perror[1],
+                    "temperature_unc_emcee" : emcee_params['temp_spread'],
+                    "temperature_unc_mcr" : mcr_temp_unc,
+                    "beta" : mbfit.params[2],
+                    "beta_emcee" : emcee_params['beta'],
+                    "beta_unc" : mbfit.perror[2],
+                    "beta_unc_emcee" : emcee_params['beta_spread'],
+                    "beta_unc_mcr" : mcr_beta_unc,
+                    "distance" : mbfit.params[3],
+                    "posterior_spread_obj" : emcee_params['posterior_spread_obj']
+                }
+if radiofit is not None:
+    target_fit[target]["radio"] = {
+                    "slope" : radiofit[0][0],
+                    "slope_unc" : np.sqrt(np.diag(radiofit[1]))[0],
+                    "coef" : radiofit[0][1],
+                    "coef_unc" : np.sqrt(np.diag(radiofit[1]))[1]
+                }
+if stellarfit is not None:
+    target_fit[target]["stellar"] = {
+                    "slope" : stellarfit[0][0],
+                    "slope_unc" : np.sqrt(np.diag(stellarfit[1]))[0],
+                    "coef" : stellarfit[0][1],
+                    "coef_unc" : np.sqrt(np.diag(stellarfit[1]))[1]
+                }
 
 # Write
 fit_outfile = open(fit_data_loc, 'w')
