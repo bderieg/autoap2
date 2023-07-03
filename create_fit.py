@@ -106,6 +106,10 @@ unc_upper = unc_upper[sort_ind]
 unc_lower = unc_lower[sort_ind]
 tele_names = tele_names[sort_ind]
 
+## If there are any limits . . .
+unc_upper[unc_upper < 0.0] = 1e-9
+unc_lower[unc_lower < 0.0] = 1e-9
+
 ## For radio fit
 if 'radio_points' in fit_params:
     radio_points = fit_params['radio_points']

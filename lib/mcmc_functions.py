@@ -26,7 +26,7 @@ def mcmc_full_run(freq, flux, fluxerr, fitparams, priors, nwalkers, niter, hold)
     ## Get sample data
     samples = sampler.get_chain(flat=True, discard=500)
     ## Find the most probable datum
-    theta_max = samples[np.argmax(sampler.flatlnprobability)].copy()
+    theta_max = samples[np.argmax(sampler.get_log_prob(flat=True, discard=500))].copy()
     ## Draw some random samples and get statistics
     draw = np.floor(np.random.uniform(0,len(samples),size=200)).astype(int)
     theta_dist = samples[draw]

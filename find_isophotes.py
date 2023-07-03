@@ -72,8 +72,18 @@ main_ap = apertures[green_ind[0]]
 #####################
 
 # Mask red apertures
-mask = sum([apertures[ii].to_pixel(wcs).to_mask().to_image(img.shape) for ii in red_ind])
+sub_aps_pix = [apertures[ii].to_pixel(wcs) for ii in red_ind]
+sub_aps_pix_g = sub_aps_pix.copy()
+# for aa in sub_aps_pix_g:
+#     aa.width += 5
+#     aa.height += 5
+mask = sum([aa.to_mask().to_image(img.shape) for aa in sub_aps_pix_g])
 img = ma.masked_array(img, mask=mask)
+
+# Adjust aperture center to flux peak
+main_ap_pix = main_ap.to_pixel(wcs)
+flux_center = np.unravel_index(np.argmax(main_ap_pix.to_mask().to_image(img.shape)*img), img.shape)
+main_ap_pix.center = PixCoord(flux_center[1], flux_center[0])
 
 ###################
 # Get target flux #
@@ -89,16 +99,15 @@ background = imf.integrate_flux(bg_cutout, 0.0) / (len(bg_cutout)-2)**2
 ### If background flux nan, just set to 0.0
 if background != background:
     background = 0.0
-img_sub = img - background
 
 # Get main flux
-total_flux = imf.integrate_flux(main_ap.to_pixel(wcs).to_mask().multiply(img), background)
+total_flux = imf.integrate_flux(main_ap_pix.to_mask().multiply(img), background)
 
 ##########################
 # Find half-light radius #
 ##########################
 
-hlap = main_ap.copy().to_pixel(wcs)
+hlap = main_ap_pix.copy()
 relflux = 1.0
 while relflux >= 0.5:
     hlap.width *= 0.99
@@ -120,17 +129,18 @@ geom = EllipseGeometry(
         )
 
 # Fit
-fitobj = Ellipse(img_sub, geom)
+fitobj = Ellipse(img, geom)
 isofitlist = fitobj.fit_image(
                     sma0=hlrad, 
                     minsma=0.4*hlrad, 
                     maxsma=3.5*hlrad, 
                     step=0.48*hlrad, 
                     linear=True, 
+                    fix_center=True,
                     conver=1e-3, 
                     minit=20,
                     nclip=12, 
-                    sclip=3.0,
+                    sclip=2.0,
                     maxgerr=2.0, 
                     fflag=0.1 
                 )
@@ -184,7 +194,7 @@ if np.amax(img) > 0.1:
     ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=0.1))
 else:
     ax.imshow(img, cmap=cm)
-main_ap.to_pixel(wcs).plot()
+main_ap_pix.plot()
 for aa in [jeff for jeff in isoaplist if jeff.visual['edgecolor']=='red']:
     aa.plot()
 for aa in [jeff for jeff in isoaplist if jeff.visual['edgecolor']=='white']:
