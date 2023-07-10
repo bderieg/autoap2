@@ -113,7 +113,7 @@ unc_lower[unc_lower < 0.0] = 1e-9
 ## For radio fit
 if 'radio_points' in fit_params:
     radio_points = fit_params['radio_points']
-    radio_freq = [1e-9*freq[i] for i in radio_points]  # Also convert to GHz
+    radio_freq = [freq[i] for i in radio_points]
     radio_flux = [flux[i] for i in radio_points]
     radio_unc_upper = [unc_upper[i] for i in radio_points]
     radio_unc_lower = [unc_lower[i] for i in radio_points]
@@ -141,7 +141,7 @@ if 'mb_points' in fit_params:
 ## For stellar fit
 if 'stellar_points' in fit_params:
     stellar_points = fit_params['stellar_points']
-    stellar_freq = [1e-9*freq[i] for i in stellar_points]  # Also convert to GHz
+    stellar_freq = [freq[i] for i in stellar_points]
     stellar_flux = [flux[i] for i in stellar_points]
     stellar_unc_upper = [unc_upper[i] for i in stellar_points]
     stellar_unc_lower = [unc_lower[i] for i in stellar_points]
@@ -185,7 +185,7 @@ else:
 if radiofit is not None:
     for itr in range(len(mb_flux)):
         if mb_tele_names[itr] != "ALMA Extended":
-            mb_flux[itr] -= pf.pl_model(mb_freq[itr], radiofit[0][0], radiofit[0][1])
+            mb_flux[itr] -= pf.pl_model(1e9*mb_freq[itr], radiofit[0][0], radiofit[0][1])
 
 ##########################
 # Fit modified blackbody #

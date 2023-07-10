@@ -157,4 +157,10 @@ def get_sed_data(target_name):
                 if sed[key][fltr] is np.ma.masked:
                     sed[key][fltr] = 0.0
 
+        # Deal with absence of upper limits
+        for key in sed["sed_unc_upper"]:
+            if sed["sed_unc_upper"][key] == 0.0:
+                sed["sed_unc_upper"][key] = 0.1 * sed["sed_flux"][key]
+                sed["sed_unc_lower"][key] = 0.1 * sed["sed_flux"][key]
+
     return sed

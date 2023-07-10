@@ -22,3 +22,6 @@ def mb_fit(p, fjac=None, x=None, y=None, err=None):
 
 def pl_model(nu, a, s0):
     return s0 * nu**a
+
+def pl_log_model(nu, a, s0):
+    return a*nu + s0

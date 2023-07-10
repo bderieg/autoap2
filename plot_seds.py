@@ -170,7 +170,7 @@ for target in target_names:
                 elif "radio" in key:
                     # Plot fitted curve
                     fitted_curve = pf.pl_model(
-                            1e-9*basis,
+                            basis,
                             fitparams[key]['radio_slope'],
                             fitparams[key]['radio_coef']
                             )
@@ -178,7 +178,7 @@ for target in target_names:
                 elif "stellar" in key:
                     # Plot fitted curve
                     fitted_curve = pf.pl_model(
-                            1e-9*basis,
+                            basis,
                             fitparams[key]['stellar_slope'],
                             fitparams[key]['stellar_coef']
                             )

@@ -27,6 +27,7 @@ workdir = input("Enter working directory: ")
 if workdir[-1] != '/':
     workdir += '/'
 pa_data_loc = workdir + 'pa_data.json'
+q_data_loc = workdir + 'q_data.json'
 
 # Prompt to specify target
 print(' ')
@@ -75,8 +76,8 @@ main_ap = apertures[green_ind[0]]
 sub_aps_pix = [apertures[ii].to_pixel(wcs) for ii in red_ind]
 sub_aps_pix_g = sub_aps_pix.copy()
 # for aa in sub_aps_pix_g:
-#     aa.width += 5
-#     aa.height += 5
+#     aa.width += 200
+#     aa.height += 200
 mask = sum([aa.to_mask().to_image(img.shape) for aa in sub_aps_pix_g])
 img = ma.masked_array(img, mask=mask)
 
@@ -134,7 +135,7 @@ isofitlist = fitobj.fit_image(
                     sma0=hlrad, 
                     minsma=0.4*hlrad, 
                     maxsma=3.5*hlrad, 
-                    step=0.48*hlrad, 
+                    step=0.24*hlrad, 
                     linear=True, 
                     fix_center=True,
                     conver=1e-3, 
@@ -171,21 +172,35 @@ pa_data = {}
 try:
     pa_data = json.load(open(pa_data_loc))
 except FileNotFoundError:
-    print("\nSED data file not found ... creating a new one here")
+    print("\nPA data file not found ... creating a new one here")
+    pass
+q_data = {}
+try:
+    q_data = json.load(open(q_data_loc))
+except FileNotFoundError:
+    print("\nQ data file not found ... creating a new one here")
     pass
 
 # Get PA from ellipse fit
-avg_pa = np.mean([aa.angle.value for aa in isoaplist if aa.visual['edgecolor']=='red'])
+avg_pa = np.mean([aa.angle.value for aa in isoaplist if aa.visual['edgecolor']=='red']) + 90
+if avg_pa > 180.0 : avg_pa -= 180.0
 pa_data[target] = avg_pa
+
+# Get Q from ellipse fit
+avg_q = np.mean([min([aa.width,aa.height])/max([aa.width,aa.height]) for aa in isoaplist if aa.visual['edgecolor']=='red'])
+q_data[target] = avg_q
 
 # Write
 pa_outfile = open(pa_data_loc, 'w')
 json.dump(pa_data, pa_outfile, indent=5)
+q_outfile = open(q_data_loc, 'w')
+json.dump(q_data, q_outfile, indent=5)
 
 ##############
 # Show image #
 ##############
 
+plt.figure(0)
 fig,ax = plt.subplots()
 cm = plt.get_cmap('cividis').copy()
 if np.amax(img) > 0.1:
@@ -199,5 +214,16 @@ for aa in [jeff for jeff in isoaplist if jeff.visual['edgecolor']=='red']:
     aa.plot()
 for aa in [jeff for jeff in isoaplist if jeff.visual['edgecolor']=='white']:
     aa.plot()
-plt.legend(['Integration Region','Isophote used for PA','Other Isophote'])
+plt.legend(['Integration Region','Isophote used for PA','_','Other Isophote'])
+
+plt.figure(1)
+fig,ax = plt.subplots()
+cm = plt.get_cmap('cividis').copy()
+if np.amax(img) > 0.1:
+    cm.set_under('black')
+    cm.set_over('black')
+    ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=0.1))
+else:
+    ax.imshow(img, cmap=cm)
+
 plt.show()
