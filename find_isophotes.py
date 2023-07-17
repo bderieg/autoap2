@@ -26,8 +26,7 @@ print(' ')
 workdir = input("Enter working directory: ")
 if workdir[-1] != '/':
     workdir += '/'
-pa_data_loc = workdir + 'pa_data.json'
-q_data_loc = workdir + 'q_data.json'
+pa_data_loc = workdir + 'isophote_data.json'
 
 # Prompt to specify target
 print(' ')
@@ -135,7 +134,7 @@ isofitlist = fitobj.fit_image(
                     sma0=hlrad, 
                     minsma=0.4*hlrad, 
                     maxsma=3.5*hlrad, 
-                    step=0.24*hlrad, 
+                    step=0.48*hlrad, 
                     linear=True, 
                     fix_center=True,
                     conver=1e-3, 
@@ -148,11 +147,13 @@ isofitlist = fitobj.fit_image(
 
 # Save as apertures
 isoaplist = []
+pa_unc = 0.0
 for aa in isofitlist:
     try:
         apcolor = 'white'
         if aa.sma/hlrad > 2.5 and aa.sma/hlrad < 3.0:
             apcolor = 'red'
+            pa_unc = aa.pa_err
         isoaplist.append(EllipsePixelRegion(
                         PixCoord(aa.x0, aa.y0),
                         aa.sma,
@@ -174,27 +175,17 @@ try:
 except FileNotFoundError:
     print("\nPA data file not found ... creating a new one here")
     pass
-q_data = {}
-try:
-    q_data = json.load(open(q_data_loc))
-except FileNotFoundError:
-    print("\nQ data file not found ... creating a new one here")
-    pass
 
 # Get PA from ellipse fit
 avg_pa = np.mean([aa.angle.value for aa in isoaplist if aa.visual['edgecolor']=='red']) + 90
 if avg_pa > 180.0 : avg_pa -= 180.0
-pa_data[target] = avg_pa
-
-# Get Q from ellipse fit
-avg_q = np.mean([min([aa.width,aa.height])/max([aa.width,aa.height]) for aa in isoaplist if aa.visual['edgecolor']=='red'])
-q_data[target] = avg_q
+pa_data[target] = {}
+pa_data[target]["pa"] = avg_pa
+pa_data[target]["pa_unc"] = pa_unc
 
 # Write
 pa_outfile = open(pa_data_loc, 'w')
 json.dump(pa_data, pa_outfile, indent=5)
-q_outfile = open(q_data_loc, 'w')
-json.dump(q_data, q_outfile, indent=5)
 
 ##############
 # Show image #
@@ -214,7 +205,7 @@ for aa in [jeff for jeff in isoaplist if jeff.visual['edgecolor']=='red']:
     aa.plot()
 for aa in [jeff for jeff in isoaplist if jeff.visual['edgecolor']=='white']:
     aa.plot()
-plt.legend(['Integration Region','Isophote used for PA','_','Other Isophote'])
+plt.legend(['Integration Region','Isophote used for PA','Other Isophote'])
 
 plt.figure(1)
 fig,ax = plt.subplots()
