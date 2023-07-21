@@ -11,6 +11,7 @@ from astropy.wcs import WCS
 import astropy.units as u
 from regions import Regions, PixCoord, EllipsePixelRegion
 import json
+import mgefit.find_galaxy as fgal
 
 import image_functions as imf
 import get_ned_data as gnd
@@ -147,13 +148,22 @@ isofitlist = fitobj.fit_image(
 
 # Save as apertures
 isoaplist = []
-pa_unc = 0.0
+pa_list = []
+pa_unc_list = []
+rad_list = []
+flat_list = []
+factor = True
 for aa in isofitlist:
     try:
+        if factor:
+            pa_list.append(aa.pa*180/np.pi)
+            pa_unc_list.append(aa.pa_err*180/np.pi)
+            rad_list.append(aa.sma)
+            flat_list.append(1.-aa.eps)
         apcolor = 'white'
         if aa.sma/hlrad > 2.5 and aa.sma/hlrad < 3.0:
             apcolor = 'red'
-            pa_unc = aa.pa_err
+            factor = False
         isoaplist.append(EllipsePixelRegion(
                         PixCoord(aa.x0, aa.y0),
                         aa.sma,
@@ -163,6 +173,13 @@ for aa in isofitlist:
                     ))
     except ValueError:
         continue
+
+#######################
+# Find PA with moment #
+#######################
+
+plt.figure(2)
+momfit = fgal.find_galaxy(img, plot=True, quiet=True)
 
 ################
 # Save PA data #
@@ -177,11 +194,22 @@ except FileNotFoundError:
     pass
 
 # Get PA from ellipse fit
-avg_pa = np.mean([aa.angle.value for aa in isoaplist if aa.visual['edgecolor']=='red']) + 90
-if avg_pa > 180.0 : avg_pa -= 180.0
+avg_pa_sig = sum([(1/punc**2) * p for p,punc in zip(pa_list, pa_unc_list)]) / sum([(1/punc**2) for punc in pa_unc_list])
+avg_pa_sig += 90
+if avg_pa_sig > 180.0 : avg_pa_sig -= 180.0
 pa_data[target] = {}
-pa_data[target]["pa"] = avg_pa
-pa_data[target]["pa_unc"] = pa_unc
+pa_data[target]["pa"] = avg_pa_sig
+
+avg_pa_rad = sum([(2*np.pi*rr*ff) * p for p,rr,ff in zip(pa_list,rad_list,flat_list)]) / sum([(2*np.pi*rr*ff) for rr,ff in zip(rad_list,flat_list)])
+avg_pa_rad += 90
+if avg_pa_rad > 180.0 : avg_pa_rad -= 180.0
+
+# Informational print
+print('\n\n##### IC 1024 #####\n\n')
+print("sigma-weighted isophote : " + str(avg_pa_sig))
+print("radially-weighted isophote : " + str(avg_pa_rad))
+print("moment of inertia : " + str(momfit.pa))
+print("HyperLEDA : 29.42")
 
 # Write
 pa_outfile = open(pa_data_loc, 'w')
@@ -205,7 +233,8 @@ for aa in [jeff for jeff in isoaplist if jeff.visual['edgecolor']=='red']:
     aa.plot()
 for aa in [jeff for jeff in isoaplist if jeff.visual['edgecolor']=='white']:
     aa.plot()
-plt.legend(['Integration Region','Isophote used for PA','Other Isophote'])
+plt.legend(['Integration Region','Isophote Limit','Other Isophotes'])
+ax.invert_yaxis()
 
 plt.figure(1)
 fig,ax = plt.subplots()
@@ -216,5 +245,6 @@ if np.amax(img) > 0.1:
     ax.imshow(img, cmap=cm, norm=colors.SymLogNorm(linthresh=0.01, linscale=0.5, vmin=0.1))
 else:
     ax.imshow(img, cmap=cm)
+ax.invert_yaxis()
 
 plt.show()
