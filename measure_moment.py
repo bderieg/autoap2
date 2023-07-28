@@ -27,11 +27,18 @@ print(' ')
 workdir = input("Enter working directory: ")
 if workdir[-1] != '/':
     workdir += '/'
-pa_data_loc = workdir + 'pa_data.json'
+pa_data_loc = workdir + 'moment_pa_data.json'
 
 # Prompt to specify target
 print(' ')
 target = input("Enter the desired target : ")
+
+# Prompt to specify blob number
+print(' ')
+nblob = 1
+nblob = input("Enter blob number (default 1) : ")
+if nblob == '' : nblob=1
+nblob = int(nblob)
 
 ###############
 # Import data #
@@ -40,7 +47,7 @@ target = input("Enter the desired target : ")
 fltr = "W1"
 
 img_path = workdir+target+"/fits/"+fltr+".fits"
-ap_path = workdir+target+"/apertures/"+fltr+".reg"
+ap_path = workdir+target+"/apertures/"+fltr+"_mom.reg"
 bg_ap_path = workdir+target+"/apertures/background"+fltr+".reg"
 
 # Open image
@@ -80,6 +87,8 @@ sub_aps_pix_g = sub_aps_pix.copy()
 #     aa.height += 200
 mask = sum([aa.to_mask().to_image(img.shape) for aa in sub_aps_pix_g])
 img = ma.masked_array(img, mask=mask)
+img = img.filled(0)
+img = np.nan_to_num(img, nan=0.0)
 
 # Adjust aperture center to flux peak
 main_ap_pix = main_ap.to_pixel(wcs)
@@ -116,8 +125,8 @@ while relflux >= 0.5:
     relflux = imf.integrate_flux(hlap.to_mask().multiply(img), background) / total_flux
 hlrad = hlap.width
 fullap = hlap.copy()
-fullap.width *= 2.9
-fullap.height *= 2.9
+fullap.width *= 2.5
+fullap.height *= 2.5
 
 ########################
 # Find level at fullap #
@@ -125,8 +134,8 @@ fullap.height *= 2.9
 
 # Make a slightly smaller region
 fullap_sub = fullap.copy()
-fullap_sub.width *= 0.92
-fullap_sub.height *= 0.92
+fullap_sub.width *= 0.95
+fullap_sub.height *= 0.95
 
 # Make cutouts
 mask_outer = fullap.to_mask().to_image(np.shape(img))
@@ -140,8 +149,7 @@ level = np.nanmean(annulus_data)
 # Find PA with moment #
 #######################
 
-plt.figure(2)
-momfit = fgal.find_galaxy(img, plot=True, quiet=True, level=level)
+momfit = fgal.find_galaxy(img, plot=True, quiet=True, level=level, nblob=nblob)
 plt.show()
 
 ################
@@ -157,7 +165,9 @@ except FileNotFoundError:
     pass
 
 # Add new data
-pa_data[target] = momfit.pa
+pa_data[target] = {}
+pa_data[target]["pa"] = momfit.pa
+pa_data[target]["pa_unc"] = 0.5
 
 # Write
 pa_outfile = open(pa_data_loc, 'w')

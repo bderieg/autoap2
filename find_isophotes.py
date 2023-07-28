@@ -27,7 +27,7 @@ print(' ')
 workdir = input("Enter working directory: ")
 if workdir[-1] != '/':
     workdir += '/'
-pa_data_loc = workdir + 'isophote_data.json'
+pa_data_loc = workdir + 'isophote_pa_data.json'
 
 # Prompt to specify target
 print(' ')
@@ -80,6 +80,8 @@ sub_aps_pix_g = sub_aps_pix.copy()
 #     aa.height += 200
 mask = sum([aa.to_mask().to_image(img.shape) for aa in sub_aps_pix_g])
 img = ma.masked_array(img, mask=mask)
+img = img.filled(0)
+img = np.nan_to_num(img, nan=0.0)
 
 # Adjust aperture center to flux peak
 main_ap_pix = main_ap.to_pixel(wcs)
@@ -133,9 +135,9 @@ geom = EllipseGeometry(
 fitobj = Ellipse(img, geom)
 isofitlist = fitobj.fit_image(
                     sma0=hlrad, 
-                    minsma=0.4*hlrad, 
-                    maxsma=3.5*hlrad, 
-                    step=0.48*hlrad, 
+                    minsma=0.1*hlrad, 
+                    maxsma=2.0*hlrad, 
+                    step=0.2*hlrad, 
                     linear=True, 
                     fix_center=True,
                     conver=1e-3, 
@@ -161,7 +163,7 @@ for aa in isofitlist:
             rad_list.append(aa.sma)
             flat_list.append(1.-aa.eps)
         apcolor = 'white'
-        if aa.sma/hlrad > 2.5 and aa.sma/hlrad < 3.0:
+        if aa.sma/hlrad > 0.9 and aa.sma/hlrad < 1.1:
             apcolor = 'red'
             factor = False
         isoaplist.append(EllipsePixelRegion(
@@ -173,13 +175,6 @@ for aa in isofitlist:
                     ))
     except ValueError:
         continue
-
-#######################
-# Find PA with moment #
-#######################
-
-plt.figure(2)
-momfit = fgal.find_galaxy(img, plot=True, quiet=True)
 
 ################
 # Save PA data #
@@ -194,22 +189,26 @@ except FileNotFoundError:
     pass
 
 # Get PA from ellipse fit
+pa_list = [pa for pa,pau in zip(pa_list,pa_unc_list) if pau!=0.0]
+pa_unc_list = [pau for pau in pa_unc_list if pau!=0.0]
 avg_pa_sig = sum([(1/punc**2) * p for p,punc in zip(pa_list, pa_unc_list)]) / sum([(1/punc**2) for punc in pa_unc_list])
+avg_pa_sig_unc = np.sqrt(
+                        sum(
+                            [
+                                (1/pauu**2)*ss**2 for pauu,ss in\
+                                zip(
+                                        pa_unc_list,\
+                                        [np.sqrt((1/pau**2)/sum([(1/punc**2) for punc in pa_unc_list])) for pau in pa_unc_list]
+                                    )
+                            ]
+                            ) 
+                            / (len(pa_list)*(len(pa_list)-1))
+                        )
 avg_pa_sig += 90
 if avg_pa_sig > 180.0 : avg_pa_sig -= 180.0
 pa_data[target] = {}
 pa_data[target]["pa"] = avg_pa_sig
-
-avg_pa_rad = sum([(2*np.pi*rr*ff) * p for p,rr,ff in zip(pa_list,rad_list,flat_list)]) / sum([(2*np.pi*rr*ff) for rr,ff in zip(rad_list,flat_list)])
-avg_pa_rad += 90
-if avg_pa_rad > 180.0 : avg_pa_rad -= 180.0
-
-# Informational print
-print('\n\n##### IC 1024 #####\n\n')
-print("sigma-weighted isophote : " + str(avg_pa_sig))
-print("radially-weighted isophote : " + str(avg_pa_rad))
-print("moment of inertia : " + str(momfit.pa))
-print("HyperLEDA : 29.42")
+pa_data[target]["pa_unc"] = avg_pa_sig_unc
 
 # Write
 pa_outfile = open(pa_data_loc, 'w')
