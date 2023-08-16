@@ -1,60 +1,46 @@
 import pandas as pd
+import re
 
-targets = {
-            "GAMA 272990",
-            "GAMA 622429",
-            "GAMA 064646",
-            "IC 1024",
-            "NGC 0524",
-            "NGC 0708",
-            "NGC 0997",
-            "NGC 1052",
-            "NGC 1332",
-            "NGC 1380",
-            "NGC 1684",
-            "NGC 2872",
-            "NGC 3078",
-            "NGC 3169",
-            "NGC 3258",
-            "NGC 3268",
-            "NGC 3557",
-            "NGC 3599",
-            "NGC 3607",
-            "NGC 3862",
-            "NGC 4061",
-            "NGC 4435",
-            "NGC 4438",
-            "NGC 4477",
-            "NGC 4697",
-            "NGC 4786",
-            "NGC 4876",
-            "NGC 5084",
-            "NGC 5208",
-            "NGC 5838",
-            "NGC 6861",
-            "NGC 7465",
-            "PGC 43387"
-        }
-
-properties = pd.read_csv('/home/ben/Desktop/research/research_boizelle_working/ap_phot_data/galaxy_properties.csv', index_col=0)
+# properties = pd.read_csv('/home/ben/Desktop/research/research_boizelle_working/ap_phot_data/galaxy_properties.csv', index_col=0)
+properties = pd.read_excel('/home/ben/Desktop/research/research_boizelle_working/kinemetry_working/kinemetry_progress.ods', engine='odf', sheet_name='Target Parameters', index_col=0, usecols='A:V')
 
 outputfile_loc = "/home/ben/Desktop/sample_params.tex"
 with open(outputfile_loc,"w") as f:
-    for target in sorted(targets):
+    for itr, row in properties.iterrows():
+        numrows = 1
         try:
-            target_ms = str(target) + " & " +\
-                        str(properties.loc[target]['Type']) + " & " +\
-                        str(properties.loc[target]['AGN Type']) + " & " +\
-                        "$" + str(properties.loc[target]['Redshift (via NED)']) + "$ & " +\
-                        "$" + str(properties.loc[target]['Stellar Velocity Dispersion (km/s)']) + "$ & " +\
-                        "$" + str(properties.loc[target]['Angular Scale (pc arcsec^-1)']) + "$ & " +\
-                        "$" + str(properties.loc[target]['b/a dust (arcsec)']) + "$ \\\\"
+            while str(properties.index[properties.index.get_loc(itr)+numrows]) == "nan":
+                numrows += 1
+        except IndexError:
+            pass
+        if str(itr) == "nan":
+            target_ms = " & " +\
+                        "& " +\
+                        "& " +\
+                        "& " +\
+                        "& " +\
+                        "& " +\
+                        "\\\\"
+        elif numrows == 1:
+            target_ms = str(itr) + " & " +\
+                        str(row['RC3 type']) + " & " +\
+                        str(row['luminosity distance (Mpc)']) + " (" + str(row['luminosity distance unc. (Mpc)']) + ") & " +\
+                        str(row['dust minor axis (arcsec)']) + "/" + str(row['dust major axis (arcsec)']) + " & " +\
+                        str(row['gas minor axis (arcsec)']) + "/" + str(row['gas major axis (arcsec)']) + " & " +\
+                        str(round(row['gas sma / beam sma'], 1)) + " & " +\
+                        str(int(row['distance reference'])) + " \\\\"
+        else:
+            target_ms = "\multirow{" + str(numrows) + "}{*}{" + str(itr) + "} & " +\
+                        "\multirow{" + str(numrows) + "}{*}{" + str(row['RC3 type']) + "} & " +\
+                        "\multirow{" + str(numrows) + "}{*}{" + str(row['luminosity distance (Mpc)']) + " (" + str(row['luminosity distance unc. (Mpc)']) + ")} & " +\
+                        "\multirow{" + str(numrows) + "}{*}{" + str(row['dust minor axis (arcsec)']) + "/" + str(row['dust major axis (arcsec)']) + "} & " +\
+                        "\multirow{" + str(numrows) + "}{*}{" + str(row['gas minor axis (arcsec)']) + "/" + str(row['gas major axis (arcsec)']) + "} & " +\
+                        "\multirow{" + str(numrows) + "}{*}{" + str(round(row['gas sma / beam sma'],1)) + "} & " +\
+                        "\multirow{" + str(numrows) + "}{*}{" + str(int(row['distance reference'])) + "} \\\\"
 
-            target_ms = target_ms.replace("nan", "\\nodata")
-            target_ms = target_ms.replace("No HST data", "\\nodata")
-            target_ms = target_ms.replace("Irreg. dust", "\\nodata")
-            target_ms = target_ms.replace("$\\nodata$", "\\nodata")
+        target_ms = target_ms.replace("nan", "\\nodata")
+        target_ms = target_ms.replace(r"\nodata/\nodata", r"\nodata")
+        target_ms = target_ms.replace(r"\nodata (\nodata)", r"\nodata")
+        target_ms = target_ms.replace(r"$\nodata$", r"\nodata")
 
-            print(target_ms, file=f)
-        except KeyError:
-            print("warning . . . " + target + " not found")
+        print(target_ms, file=f)
