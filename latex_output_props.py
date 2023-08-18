@@ -23,7 +23,7 @@ with open(outputfile_loc,"w") as f:
         elif numrows == 1:
             target_ms = str(row['target']) + " & " +\
                         str(row['RC3 type']) + " & " +\
-                        str(row['luminosity distance (Mpc)']) + " (" + str(row['luminosity distance unc. (Mpc)']) + ")$^{" + str(int(row['distance reference'])) + "}$ & " +\
+                        str(row['luminosity distance (Mpc)']) + " (" + str(row['luminosity distance unc. (Mpc)']) + ")\\tablenotemark{" + str(row['distance reference']) + "} & " +\
                         str(row['gas minor axis (arcsec)']) + "/" + str(row['gas major axis (arcsec)']) + " & " +\
                         str(round(row['gas sma / beam sma'],1)) + " & " +\
                         str(round(row['velocity bin (km/s)'],1)) + " & " +\
@@ -32,7 +32,7 @@ with open(outputfile_loc,"w") as f:
         else:
             target_ms = "\multirow{" + str(numrows) + "}{*}{" + str(row['target']) + "} & " +\
                         "\multirow{" + str(numrows) + "}{*}{" + str(row['RC3 type']) + "} & " +\
-                        "\multirow{" + str(numrows) + "}{*}{" + str(row['luminosity distance (Mpc)']) + " (" + str(row['luminosity distance unc. (Mpc)']) + ")$^{" + str(int(row['distance reference'])) + "}$} & " +\
+                        "\multirow{" + str(numrows) + "}{*}{" + str(row['luminosity distance (Mpc)']) + " (" + str(row['luminosity distance unc. (Mpc)']) + ")\\tablenotemark{" + str(row['distance reference']) + "}} & " +\
                         "\multirow{" + str(numrows) + "}{*}{" + str(row['gas minor axis (arcsec)']) + "/" + str(row['gas major axis (arcsec)']) + "} & " +\
                         str(round(row['gas sma / beam sma'],1)) + " & " +\
                         str(round(row['velocity bin (km/s)'],1)) + " & " +\
