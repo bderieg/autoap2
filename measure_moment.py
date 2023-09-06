@@ -12,6 +12,7 @@ import astropy.units as u
 from regions import Regions, PixCoord, EllipsePixelRegion
 import json
 import mgefit.find_galaxy as fgal
+from tqdm.auto import tqdm
 
 import image_functions as imf
 import get_ned_data as gnd
@@ -109,6 +110,7 @@ background = imf.integrate_flux(bg_cutout, 0.0) / (len(bg_cutout)-2)**2
 ### If background flux nan, just set to 0.0
 if background != background:
     background = 0.0
+background_noise = np.nanstd(bg_cutout)
 
 # Get main flux
 total_flux = imf.integrate_flux(main_ap_pix.to_mask().multiply(img), background)
@@ -152,6 +154,23 @@ level = np.nanmean(annulus_data)
 momfit = fgal.find_galaxy(img, plot=True, quiet=True, level=level, nblob=nblob)
 plt.show()
 
+#################
+# MC Resampling #
+#################
+
+# resampled_fits = []
+resampled_pa_list = []
+num_runs_mc = 100
+pbmc = tqdm(range(num_runs_mc), desc="Running MC", leave=False)
+for i in range(num_runs_mc):
+    new_img = img + np.random.normal(scale=background_noise, size=np.shape(img))
+    # resampled_fits.append(fgal.find_galaxy(new_img, plot=True, quiet=True, level=level, nblob=nblob))
+    resampled_pa_list.append(fgal.find_galaxy(new_img, plot=True, quiet=True, level=level, nblob=nblob).pa)
+    pbmc.update(1)
+
+# resampled_pa_list = [resfit.pa for resfit in resampled_fits]
+pa_unc = np.std(np.array(resampled_pa_list))
+
 ################
 # Save PA data #
 ################
@@ -167,7 +186,7 @@ except FileNotFoundError:
 # Add new data
 pa_data[target] = {}
 pa_data[target]["pa"] = momfit.pa
-pa_data[target]["pa_unc"] = 0.5
+pa_data[target]["pa_unc"] = pa_unc
 
 # Write
 pa_outfile = open(pa_data_loc, 'w')

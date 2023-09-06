@@ -1,6 +1,6 @@
 import pandas as pd
 
-properties = pd.read_excel('/home/ben/Desktop/research/research_boizelle_working/kinemetry_working/kinemetry_progress.ods', engine='odf', sheet_name='Target Parameters', usecols='A:W')
+properties = pd.read_excel('/home/ben/Desktop/research/research_boizelle_working/kinemetry_working/kinemetry_progress.ods', engine='odf', sheet_name='Target Parameters', usecols='A:AB')
 
 outputfile_loc = "/home/ben/Desktop/sample_params.tex"
 with open(outputfile_loc,"w") as f:
@@ -16,26 +16,26 @@ with open(outputfile_loc,"w") as f:
                         "& " +\
                         "& " +\
                         "& " +\
-                        str(round(row['gas sma / beam sma'],1)) + " & " +\
-                        str(round(row['velocity bin (km/s)'],1)) + " & " +\
+                        "& " +\
+                        str(round(row['ROI / beam radius'],2)) + " & " +\
                         str(row['transition']) + " & " +\
                         str(row['project'])
         elif numrows == 1:
             target_ms = str(row['target']) + " & " +\
                         str(row['RC3 type']) + " & " +\
                         str(row['luminosity distance (Mpc)']) + " (" + str(row['luminosity distance unc. (Mpc)']) + ")\\tablenotemark{" + str(row['distance reference']) + "} & " +\
-                        str(row['gas minor axis (arcsec)']) + "/" + str(row['gas major axis (arcsec)']) + " & " +\
-                        str(round(row['gas sma / beam sma'],1)) + " & " +\
-                        str(round(row['velocity bin (km/s)'],1)) + " & " +\
+                        str(round(row['stellar velocity dispersion (km/s)'],1)) + " & " +\
+                        str(round(row['SMBH mass (solar masses)']/1e7,1)) + " & " +\
+                        str(round(row['ROI / beam radius'],2)) + " & " +\
                         str(row['transition']) + " & " +\
                         str(row['project'])
         else:
             target_ms = "\multirow{" + str(numrows) + "}{*}{" + str(row['target']) + "} & " +\
                         "\multirow{" + str(numrows) + "}{*}{" + str(row['RC3 type']) + "} & " +\
                         "\multirow{" + str(numrows) + "}{*}{" + str(row['luminosity distance (Mpc)']) + " (" + str(row['luminosity distance unc. (Mpc)']) + ")\\tablenotemark{" + str(row['distance reference']) + "}} & " +\
-                        "\multirow{" + str(numrows) + "}{*}{" + str(row['gas minor axis (arcsec)']) + "/" + str(row['gas major axis (arcsec)']) + "} & " +\
-                        str(round(row['gas sma / beam sma'],1)) + " & " +\
-                        str(round(row['velocity bin (km/s)'],1)) + " & " +\
+                        "\multirow{" + str(numrows) + "}{*}{" + str(round(row['stellar velocity dispersion (km/s)'],1)) + "} & " +\
+                        "\multirow{" + str(numrows) + "}{*}{" + str(round(row['SMBH mass (solar masses)']/1e7,1)) + "} & " +\
+                        str(round(row['ROI / beam radius'],2)) + " & " +\
                         str(row['transition']) + " & " +\
                         str(row['project'])
 
@@ -46,5 +46,7 @@ with open(outputfile_loc,"w") as f:
 
         if itr < len(properties)-1:
             target_ms += " \\\\"
+            # if str(properties.iloc[itr+1,0]) != "nan":
+            #     target_ms += " \\hline"
 
         print(target_ms, file=f)
