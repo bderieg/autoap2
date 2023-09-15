@@ -30,7 +30,7 @@ with open(outputfile_loc,"w") as f:
                         str(round(row['integration time (s)']/60,1)) + " & " +\
                         str(row['velocity bin (km/s)']) + " & " +\
                         str(row['beam major axis (arcsec)']) + "/" + str(row['beam minor axis (arcsec)']) + " & " +\
-                        '\\nodata'
+                        str(row['flux RMS (mJy/beam)'])
         elif numrows == 1:
             target_ms = str(row['project']) + " & " +\
                         str(row['target']) + " & " +\
@@ -38,7 +38,7 @@ with open(outputfile_loc,"w") as f:
                         str(round(row['integration time (s)']/60,1)) + " & " +\
                         str(row['velocity bin (km/s)']) + " & " +\
                         str(row['beam major axis (arcsec)']) + "/" + str(row['beam minor axis (arcsec)']) + " & " +\
-                        '\\nodata'
+                        str(row['flux RMS (mJy/beam)'])
         else:
             target_ms = str(row['project']) + " & " +\
                         str(row['target']) + " & " +\
@@ -46,7 +46,7 @@ with open(outputfile_loc,"w") as f:
                         str(round(row['integration time (s)']/60,1)) + " & " +\
                         str(row['velocity bin (km/s)']) + " & " +\
                         str(row['beam major axis (arcsec)']) + "/" + str(row['beam minor axis (arcsec)']) + " & " +\
-                        '\\nodata'
+                        str(row['flux RMS (mJy/beam)'])
 
         target_ms = target_ms.replace("nan", "\\nodata")
         target_ms = target_ms.replace(r"\nodata/\nodata", r"\nodata")
